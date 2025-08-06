@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # Base de données pour l'application principale
+  db:
+    image: postgres:15
+    container_name: actions-db
+    environment:
+      POSTGRES_DB: actions_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - actions-network
+
+  # Base de données pour Keycloak
+  keycloak-db:
+    image: postgres:15
+    container_name: keycloak-db
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    volumes:
+      - keycloak_data:/var/lib/postgresql/data
+    networks:
+      - actions-network
+
+  # Service Keycloak
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgresql
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+    ports:
+      - "8080:8080"
+    depends_on:
+      - keycloak-db
+    command: start-dev
+    networks:
+      - actions-network
+
+  # Application principale
+  app:
+    build: .
+    container_name: actions-app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/actions_db
+      - SECRET_KEY=your-secret-key-here-change-in-production
+      - KEYCLOAK_SERVER_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=actions-realm
+      - KEYCLOAK_CLIENT_ID=actions-api
+      - KEYCLOAK_CLIENT_SECRET=your-client-secret-here
+      - KEYCLOAK_ADMIN_USERNAME=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+    depends_on:
+      - db
+      - keycloak
+    volumes:
+      - ./certificates:/app/certificates
+      - ./uploads:/app/uploads
+    networks:
+      - actions-network
+
+volumes:
+  postgres_data:
+  keycloak_data:
+
+networks:
+  actions-network:
+    driver: bridge 

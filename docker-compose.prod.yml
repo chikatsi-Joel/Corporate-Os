@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # Base de données pour l'application principale
+  db:
+    image: postgres:15
+    container_name: actions-db-prod
+    environment:
+      POSTGRES_DB: actions_db
+      POSTGRES_USER: ${DB_USER:-user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - actions-network
+    restart: unless-stopped
+
+  # Base de données pour Keycloak
+  keycloak-db:
+    image: postgres:15
+    container_name: keycloak-db-prod
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+    volumes:
+      - keycloak_data:/var/lib/postgresql/data
+    networks:
+      - actions-network
+    restart: unless-stopped
+
+  # Service Keycloak
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: keycloak-prod
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgresql
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
+      KC_HOSTNAME_PORT: 8080
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+    depends_on:
+      - keycloak-db
+    command: start
+    networks:
+      - actions-network
+    restart: unless-stopped
+
+  # Application principale
+  app:
+    build: .
+    container_name: actions-app-prod
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-user}:${DB_PASSWORD:-password}@db:5432/actions_db
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here-change-in-production}
+      - KEYCLOAK_SERVER_URL=${KEYCLOAK_SERVER_URL:-http://keycloak:8080}
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-actions-realm}
+      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-actions-api}
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET:-your-client-secret-here}
+      - KEYCLOAK_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USERNAME:-admin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      - HOST=0.0.0.0
+      - PORT=8000
+      - RELOAD=false
+    depends_on:
+      - db
+      - keycloak
+    volumes:
+      - ./certificates:/app/certificates
+      - ./uploads:/app/uploads
+    networks:
+      - actions-network
+    restart: unless-stopped
+
+  # Nginx reverse proxy (optionnel)
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+      - keycloak
+    networks:
+      - actions-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  keycloak_data:
+
+networks:
+  actions-network:
+    driver: bridge 
