@@ -1,0 +1,321 @@
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Query
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+from app.database.database import get_db
+from app.core.auth import get_current_user, require_admin
+from app.database.models import User, ShareIssuance
+from app.schemas.issuance import ShareIssuanceCreate, ShareIssuance as ShareIssuanceSchema, ShareIssuanceWithShareholder
+from app.services.issuance_service import IssuanceService
+from app.services.user_service import UserService
+from app.services.certificate_service import CertificateService
+from typing import List
+from uuid import UUID
+import os
+
+router = APIRouter(prefix="/api/issuances", tags=["issuances"])
+
+
+@router.get("/", response_model=List[ShareIssuanceWithShareholder], summary="Liste des émissions d'actions")
+async def get_issuances(
+    skip: int = Query(0, ge=0, description="Nombre d'éléments à ignorer", example=0),
+    limit: int = Query(100, ge=1, le=1000, description="Nombre maximum d'éléments à retourner", example=100),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère la liste des émissions d'actions.
+    
+    Cette endpoint retourne les émissions d'actions selon le rôle de l'utilisateur :
+    - **Admin** : Voir toutes les émissions
+    - **Actionnaire** : Voir uniquement ses propres émissions
+    
+    **Authentification requise** : Token JWT valide
+    
+    **Paramètres** :
+    - `skip` : Nombre d'éléments à ignorer (pagination)
+    - `limit` : Nombre maximum d'éléments à retourner (max 1000)
+    
+    **Retourne** :
+    - `200 OK` : Liste des émissions d'actions
+    - `401 Unauthorized` : Token invalide ou expiré
+    
+    **Exemple de réponse** :
+    ```json
+    [
+        {
+            "id": "123e4567-e89b-12d3-a456-426614174000",
+            "shareholder_id": "123e4567-e89b-12d3-a456-426614174001",
+            "number_of_shares": 1000,
+            "price_per_share": 50.00,
+            "total_amount": 50000.00,
+            "issue_date": "2024-01-01",
+            "status": "issued",
+            "certificate_path": "/certificates/issuance_123.pdf",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+            "shareholder": {
+                "id": "123e4567-e89b-12d3-a456-426614174001",
+                "username": "john.doe",
+                "first_name": "John",
+                "last_name": "Doe",
+                "email": "john.doe@example.com"
+            }
+        }
+    ]
+    ```
+    """
+    if current_user.role == 'admin':
+        # Admin voit toutes les émissions
+        issuances = IssuanceService.get_issuances_with_shareholder_info(db, skip=skip, limit=limit)
+    else:
+        # Actionnaire ne voit que ses propres émissions
+        issuances = IssuanceService.get_issuances_with_shareholder_info(db, skip=skip, limit=limit, shareholder_id=current_user.id)
+    
+    return issuances
+
+
+@router.post("/", response_model=ShareIssuanceSchema, summary="Créer une émission d'actions", status_code=status.HTTP_201_CREATED)
+async def create_issuance(
+    issuance: ShareIssuanceCreate,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Crée une nouvelle émission d'actions.
+    
+    Cette endpoint permet de créer une nouvelle émission d'actions pour un actionnaire.
+    Le montant total est calculé automatiquement (nombre d'actions × prix par action).
+    Un certificat PDF est généré automatiquement.
+    
+    **Permissions requises** : Rôle admin uniquement
+    
+    **Paramètres** :
+    - `issuance` : Données de la nouvelle émission
+    
+    **Retourne** :
+    - `201 Created` : Émission créée avec succès
+    - `400 Bad Request` : Données invalides
+    - `403 Forbidden` : Accès refusé (pas de rôle admin)
+    - `404 Not Found` : Actionnaire non trouvé
+    - `409 Conflict` : Émission en conflit
+    
+    **Exemple de requête** :
+    ```json
+    {
+        "shareholder_id": "123e4567-e89b-12d3-a456-426614174001",
+        "number_of_shares": 1000,
+        "price_per_share": 50.00,
+        "issue_date": "2024-01-01",
+        "status": "issued"
+    }
+    ```
+    
+    **Exemple de réponse** :
+    ```json
+    {
+        "id": "123e4567-e89b-12d3-a456-426614174000",
+        "shareholder_id": "123e4567-e89b-12d3-a456-426614174001",
+        "number_of_shares": 1000,
+        "price_per_share": 50.00,
+        "total_amount": 50000.00,
+        "issue_date": "2024-01-01",
+        "status": "issued",
+        "certificate_path": "/certificates/issuance_123.pdf",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z"
+    }
+    ```
+    """
+    # Vérifier que l'actionnaire existe
+    shareholder = UserService.get_user_by_id(db, issuance.shareholder_id)
+    if not shareholder:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Actionnaire non trouvé"
+        )
+    
+    # Créer l'émission
+    new_issuance = IssuanceService.create_issuance(db, issuance)
+    
+    return new_issuance
+
+
+@router.get("/{issuance_id}", response_model=ShareIssuanceWithShareholder, summary="Détails d'une émission")
+async def get_issuance(
+    issuance_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère les détails d'une émission d'actions spécifique.
+    
+    Cette endpoint retourne les informations complètes d'une émission d'actions,
+    incluant les détails de l'actionnaire associé.
+    
+    **Permissions** :
+    - Admin : Peut voir toutes les émissions
+    - Actionnaire : Peut voir uniquement ses propres émissions
+    
+    **Paramètres** :
+    - `issuance_id` : Identifiant unique de l'émission
+    
+    **Retourne** :
+    - `200 OK` : Détails de l'émission
+    - `403 Forbidden` : Accès refusé
+    - `404 Not Found` : Émission non trouvée
+    - `401 Unauthorized` : Token invalide ou expiré
+    
+    **Exemple de réponse** :
+    ```json
+    {
+        "id": "123e4567-e89b-12d3-a456-426614174000",
+        "shareholder_id": "123e4567-e89b-12d3-a456-426614174001",
+        "number_of_shares": 1000,
+        "price_per_share": 50.00,
+        "total_amount": 50000.00,
+        "issue_date": "2024-01-01",
+        "status": "issued",
+        "certificate_path": "/certificates/issuance_123.pdf",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+        "shareholder": {
+            "id": "123e4567-e89b-12d3-a456-426614174001",
+            "username": "john.doe",
+            "first_name": "John",
+            "last_name": "Doe",
+            "email": "john.doe@example.com"
+        }
+    }
+    ```
+    """
+    issuance = IssuanceService.get_issuance_by_id(db, issuance_id)
+    if not issuance:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Émission non trouvée"
+        )
+    
+    # Vérifier les permissions
+    if current_user.role != 'admin' and current_user.id != issuance.shareholder_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès refusé"
+        )
+    
+    # Récupérer les informations complètes avec l'actionnaire
+    issuances_with_info = IssuanceService.get_issuances_with_shareholder_info(db, shareholder_id=issuance.shareholder_id)
+    for issuance_info in issuances_with_info:
+        if issuance_info['id'] == issuance_id:
+            return issuance_info
+    
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Émission non trouvée"
+    )
+
+
+@router.get("/{issuance_id}/certificate", summary="Télécharger le certificat PDF")
+async def download_certificate(
+    issuance_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Télécharge le certificat PDF d'une émission d'actions.
+    
+    Cette endpoint permet de télécharger le certificat PDF généré pour une émission d'actions.
+    Le certificat contient les détails de l'émission et est signé numériquement.
+    
+    **Permissions** :
+    - Admin : Peut télécharger tous les certificats
+    - Actionnaire : Peut télécharger uniquement ses propres certificats
+    
+    **Paramètres** :
+    - `issuance_id` : Identifiant unique de l'émission
+    
+    **Retourne** :
+    - `200 OK` : Fichier PDF du certificat
+    - `403 Forbidden` : Accès refusé
+    - `404 Not Found` : Émission ou certificat non trouvé
+    - `401 Unauthorized` : Token invalide ou expiré
+    
+    **Exemple de réponse** :
+    ```
+    Content-Type: application/pdf
+    Content-Disposition: attachment; filename="certificate_123.pdf"
+    
+    [Contenu binaire du PDF]
+    ```
+    """
+    issuance = IssuanceService.get_issuance_by_id(db, issuance_id)
+    if not issuance:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Émission non trouvée"
+        )
+    
+    # Vérifier les permissions
+    if current_user.role != 'admin' and current_user.id != issuance.shareholder_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès refusé"
+        )
+    
+    # Vérifier que le certificat existe
+    if not issuance.certificate_path or not os.path.exists(issuance.certificate_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Certificat non trouvé"
+        )
+    
+    return FileResponse(
+        path=issuance.certificate_path,
+        filename=f"certificate_{issuance_id}.pdf",
+        media_type="application/pdf"
+    )
+
+
+@router.get("/cap-table/summary", summary="Résumé de la Cap Table")
+async def get_cap_table_summary(
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère un résumé complet de la table de capitalisation.
+    
+    Cette endpoint retourne un résumé détaillé de la Cap Table, incluant :
+    - Nombre total d'actions émises
+    - Valeur totale de la capitalisation
+    - Répartition par actionnaire
+    - Pourcentages de participation
+    
+    **Permissions requises** : Rôle admin uniquement
+    
+    **Retourne** :
+    - `200 OK` : Résumé de la Cap Table
+    - `403 Forbidden` : Accès refusé (pas de rôle admin)
+    - `401 Unauthorized` : Token invalide ou expiré
+    
+    **Exemple de réponse** :
+    ```json
+    {
+        "total_shares": 10000,
+        "total_value": 500000.00,
+        "shareholders_count": 5,
+        "shareholders": [
+            {
+                "id": "123e4567-e89b-12d3-a456-426614174000",
+                "username": "john.doe",
+                "first_name": "John",
+                "last_name": "Doe",
+                "shares": 2500,
+                "value": 125000.00,
+                "percentage": 25.0
+            }
+        ],
+        "last_updated": "2024-01-01T00:00:00Z"
+    }
+    ```
+    """
+    summary = IssuanceService.get_cap_table_summary(db)
+    return summary 

@@ -1,0 +1,174 @@
+from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import settings
+from app.core.swagger import custom_openapi_schema, get_swagger_ui_parameters
+from app.database.database import engine
+from app.database import models
+from app.api import auth, shareholders, issuances
+import logging
+
+# Configuration du logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Créer les tables
+models.Base.metadata.create_all(bind=engine)
+
+# Métadonnées pour l'API
+tags_metadata = [
+    {
+        "name": "authentication",
+        "description": "Opérations d'authentification et de gestion des utilisateurs. Utilise Keycloak pour l'authentification JWT.",
+        "externalDocs": {
+            "description": "Documentation Keycloak",
+            "url": "https://www.keycloak.org/documentation",
+        },
+    },
+    {
+        "name": "shareholders",
+        "description": "Gestion des actionnaires. Permet de créer, consulter et gérer les actionnaires de l'entreprise.",
+    },
+    {
+        "name": "issuances",
+        "description": "Gestion des émissions d'actions. Permet de créer des émissions, consulter les certificats et gérer la Cap Table.",
+    },
+    {
+        "name": "health",
+        "description": "Points de contrôle de santé de l'application et informations système.",
+    },
+]
+
+# Créer l'application FastAPI
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.app_version,
+    description="""
+# Corporate OS - API de Gestion de Cap Table
+
+## 🎯 Description
+
+Cette API permet de gérer la table de capitalisation (Cap Table) d'une entreprise avec les fonctionnalités suivantes :
+
+### Fonctionnalités Principales
+
+* **🔐 Authentification** : Intégration avec Keycloak pour l'authentification JWT
+* **👥 Gestion des Actionnaires** : Création et gestion des actionnaires
+* **📊 Émissions d'Actions** : Gestion des émissions d'actions avec calcul automatique
+* **📄 Certificats PDF** : Génération automatique de certificats d'actions
+* **📈 Cap Table** : Visualisation et gestion de la table de capitalisation
+
+### Rôles Utilisateurs
+
+* **Admin** : Accès complet à toutes les fonctionnalités
+* **Actionnaire** : Consultation de ses propres actions et certificats
+
+### Technologies Utilisées
+
+* **Framework** : FastAPI
+* **Base de données** : PostgreSQL
+* **Authentification** : Keycloak
+* **Génération PDF** : ReportLab
+* **Documentation** : Swagger/OpenAPI
+
+## 🚀 Démarrage Rapide
+
+1. **Démarrer les services** : `docker-compose up -d`
+2. **Accéder à la documentation** : http://localhost:8000/docs
+3. **Authentification** : Utiliser Keycloak (http://localhost:8080)
+
+## 📚 Endpoints Principaux
+
+* `GET /` - Point d'entrée de l'application
+* `GET /health` - Contrôle de santé
+* `GET /api/auth/me` - Informations utilisateur connecté
+* `GET /api/shareholders/` - Liste des actionnaires
+* `GET /api/issuances/` - Liste des émissions
+* `GET /api/issuances/cap-table/summary` - Résumé de la Cap Table
+
+## 🔒 Authentification
+
+L'API utilise Keycloak pour l'authentification. Tous les endpoints (sauf `/` et `/health`) nécessitent un token JWT valide.
+
+### Utilisateurs par défaut :
+* **Admin** : `admin` / `admin123`
+* **Actionnaire** : `actionnaire` / `actionnaire123`
+    """,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    tags_metadata=tags_metadata,
+    contact={
+        "name": "Support Corporate OS",
+        "email": "support@corporate-os.com",
+        "url": "https://corporate-os.com/support",
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    servers=[
+        {
+            "url": "http://localhost:8000",
+            "description": "Serveur de développement"
+        },
+        {
+            "url": "https://api.corporate-os.com",
+            "description": "Serveur de production"
+        }
+    ],
+    **get_swagger_ui_parameters()
+)
+
+# Configuration CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:8000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Inclure les routes
+app.include_router(auth.router)
+app.include_router(shareholders.router)
+app.include_router(issuances.router)
+
+# Configuration personnalisée de l'OpenAPI schema
+app.openapi = lambda: custom_openapi_schema(app)
+
+
+@app.get("/", tags=["health"])
+async def root():
+    """
+    Point d'entrée de l'application
+    
+    Retourne les informations de base de l'application et les liens vers la documentation.
+    """
+    return {
+        "message": "Bienvenue dans Corporate OS - Gestion de Cap Table",
+        "version": settings.app_version,
+        "docs": "/docs",
+        "redoc": "/redoc",
+        "openapi": "/openapi.json",
+        "health": "/health"
+    }
+
+
+@app.get("/health", tags=["health"])
+async def health_check():
+    """
+    Point de contrôle de santé de l'application
+    
+    Utilisé par les systèmes de monitoring pour vérifier que l'application fonctionne correctement.
+    """
+    return {
+        "status": "healthy", 
+        "service": "corporate-os",
+        "version": settings.app_version,
+        "timestamp": "2024-01-01T00:00:00Z"
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000) 
