@@ -27,8 +27,8 @@
   "clients": [
     {
       "clientId": "corporate-os-client",
-      "name": "",
-      "description": "",
+      "name": "Corporate OS Client",
+      "description": "Client principal pour l'application Corporate OS",
       "rootUrl": "",
       "adminUrl": "",
       "baseUrl": "",
@@ -89,9 +89,107 @@
       }
     },
     {
+      "clientId": "resource-server",
+      "name": "Resource Server",
+      "description": "Client pour les resource servers",
+      "rootUrl": "",
+      "adminUrl": "",
+      "baseUrl": "",
+      "surrogateAuthRequired": false,
+      "enabled": true,
+      "alwaysDisplayInConsole": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "resource-server-secret",
+      "notBefore": 0,
+      "bearerOnly": true,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "frontchannelLogout": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "saml.assertion.signature": "false",
+        "saml.force.post.binding": "false",
+        "saml.multivalued.roles": "false",
+        "saml.encrypt": "false",
+        "saml.server.signature": "false",
+        "saml.server.signature.keyinfo.ext": "false",
+        "exclude.session.state.from.auth.response": "false",
+        "saml_force_name_id_format": "false",
+        "saml.client.signature": "false",
+        "tls.client.certificate.bound.access.tokens": "false",
+        "saml.authnstatement": "false",
+        "display.on.consent.screen": "false",
+        "saml.onetimeuse.condition": "false"
+      },
+      "authenticationFlowBindingOverrides": {},
+      "fullScopeAllowed": true,
+      "nodeReRegistrationTimeout": -1,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "basic",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "organization",
+        "offline_access",
+        "microprofile-jwt"
+      ],
+      "access": {
+        "view": true,
+        "configure": true,
+        "manage": true
+      },
+      "authorizationServicesEnabled": true,
+      "authorizationSettings": {
+        "allowRemoteResourceManagement": true,
+        "policyEnforcementMode": "ENFORCING",
+        "resources": [
+          {
+            "name": "user-info",
+            "displayName": "User Information",
+            "type": "urn:corporate-os:resources:user-info",
+            "ownerManagedAccess": false,
+            "attributes": {
+              "uri": ["/userinfo"]
+            },
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          }
+        ],
+        "policies": [
+          {
+            "name": "allow-all-policy",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"admin\",\"required\":true},{\"id\":\"actionnaire\",\"required\":true}]"
+            }
+          }
+        ],
+        "scopes": [
+          {
+            "name": "read"
+          }
+        ]
+      }
+    },
+    {
       "clientId": "user",
-      "name": "",
-      "description": "",
+      "name": "User Client",
+      "description": "Client pour les utilisateurs",
       "rootUrl": "",
       "adminUrl": "",
       "baseUrl": "",
@@ -153,8 +251,8 @@
     },
     {
       "clientId": "shareFolder",
-      "name": "",
-      "description": "",
+      "name": "Share Folder Client",
+      "description": "Client pour le partage de dossiers",
       "rootUrl": "",
       "adminUrl": "",
       "baseUrl": "",
@@ -216,8 +314,8 @@
     },
     {
       "clientId": "admin-cli",
-      "name": "",
-      "description": "",
+      "name": "Admin CLI",
+      "description": "Client pour l'interface d'administration",
       "rootUrl": "",
       "adminUrl": "",
       "baseUrl": "",

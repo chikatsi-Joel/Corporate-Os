@@ -9,7 +9,7 @@ class UserBase(BaseModel):
     email: EmailStr = Field(..., description="Adresse email de l'utilisateur", example="john.doe@example.com")
     first_name: Optional[str] = Field(None, description="Prénom de l'utilisateur", example="John")
     last_name: Optional[str] = Field(None, description="Nom de famille de l'utilisateur", example="Doe")
-    role: str = Field(..., description="Rôle de l'utilisateur", example="admin", regex="^(admin|actionnaire)$")
+    role: str = Field(..., description="Rôle de l'utilisateur", example="admin", pattern="^(admin|actionnaire)$")
 
 
 class UserCreate(UserBase):

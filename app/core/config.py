@@ -3,9 +3,9 @@ from typing import Optional
 
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql://corporate_user:corporate_password@localhost:5432/corporate_os"
+    database_url: str = "postgresql://corporate_user:corporate_password@postgres:5432/corporate_os"
     
-    keycloak_url: str = "http://localhost:8080"
+    keycloak_url: str = "http://keycloak:8080"
     keycloak_realm: str = "corporate-os"
     keycloak_client_id: str = "corporate-os-client"
     keycloak_admin_username: str = "admin"

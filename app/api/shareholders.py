@@ -58,7 +58,6 @@ async def get_shareholders(
 @router.post("/", response_model=UserSchema, summary="Créer un actionnaire", status_code=status.HTTP_201_CREATED)
 async def create_shareholder(
     shareholder: UserCreate,
-    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """

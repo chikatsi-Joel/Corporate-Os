@@ -43,7 +43,7 @@ services:
     networks:
       - corporate_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
+      test: ["CMD", "/opt/keycloak/bin/kc.sh", "show-config"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -52,7 +52,7 @@ services:
   # Application FastAPI
   app:
     build:
-      context: .
+      context: ./app
       dockerfile: Dockerfile
       args:
         - BUILDKIT_INLINE_CACHE=1

@@ -6,23 +6,23 @@ from decimal import Decimal
 
 
 class ShareIssuanceBase(BaseModel):
-    number_of_shares: int = Field(gt=0, description="Nombre d'actions à émettre", example=1000)
-    price_per_share: Decimal = Field(ge=0, description="Prix par action en euros", example=50.00)
-    issue_date: date = Field(..., description="Date d'émission des actions", example="2024-01-01")
-    status: str = Field("issued", description="Statut de l'émission", example="issued", regex="^(issued|pending|cancelled)$")
+    """Schéma de base pour une émission d'actions"""
+    shareholder_id: UUID = Field(..., description="Identifiant de l'actionnaire")
+    shares_count: int = Field(..., description="Nombre d'actions émises", gt=0, example=100)
+    share_price: Decimal = Field(..., description="Prix par action", gt=0, example=50.00)
+    status: str = Field("issued", description="Statut de l'émission", example="issued", pattern="^(issued|pending|cancelled)$")
 
 
 class ShareIssuanceCreate(ShareIssuanceBase):
     """Schéma pour la création d'une émission d'actions"""
-    shareholder_id: UUID = Field(..., description="Identifiant de l'actionnaire")
+    pass
 
 
 class ShareIssuanceUpdate(BaseModel):
     """Schéma pour la mise à jour d'une émission d'actions"""
-    number_of_shares: Optional[int] = Field(None, gt=0, description="Nombre d'actions à émettre", example=1000)
-    price_per_share: Optional[Decimal] = Field(None, ge=0, description="Prix par action en euros", example=50.00)
-    issue_date: Optional[date] = Field(None, description="Date d'émission des actions", example="2024-01-01")
-    status: Optional[str] = Field(None, description="Statut de l'émission", example="issued", regex="^(issued|pending|cancelled)$")
+    shares_count: Optional[int] = Field(None, description="Nombre d'actions émises", gt=0, example=100)
+    share_price: Optional[Decimal] = Field(None, description="Prix par action", gt=0, example=50.00)
+    status: Optional[str] = Field(None, description="Statut de l'émission", example="issued", pattern="^(issued|pending|cancelled)$")
 
 
 class ShareIssuance(ShareIssuanceBase):

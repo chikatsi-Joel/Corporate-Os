@@ -45,17 +45,17 @@ app = FastAPI(
     description="""
 # Corporate OS - API de Gestion de Cap Table
 
-## 🎯 Description
+## Description
 
 Cette API permet de gérer la table de capitalisation (Cap Table) d'une entreprise avec les fonctionnalités suivantes :
 
 ### Fonctionnalités Principales
 
-* **🔐 Authentification** : Intégration avec Keycloak pour l'authentification JWT
-* **👥 Gestion des Actionnaires** : Création et gestion des actionnaires
-* **📊 Émissions d'Actions** : Gestion des émissions d'actions avec calcul automatique
-* **📄 Certificats PDF** : Génération automatique de certificats d'actions
-* **📈 Cap Table** : Visualisation et gestion de la table de capitalisation
+* ** Authentification** : Intégration avec Keycloak pour l'authentification JWT
+* ** Gestion des Actionnaires** : Création et gestion des actionnaires
+* ** Émissions d'Actions** : Gestion des émissions d'actions avec calcul automatique
+* ** Certificats PDF** : Génération automatique de certificats d'actions
+* ** Cap Table** : Visualisation et gestion de la table de capitalisation
 
 ### Rôles Utilisateurs
 
@@ -70,13 +70,13 @@ Cette API permet de gérer la table de capitalisation (Cap Table) d'une entrepri
 * **Génération PDF** : ReportLab
 * **Documentation** : Swagger/OpenAPI
 
-## 🚀 Démarrage Rapide
+## Démarrage Rapide
 
 1. **Démarrer les services** : `docker-compose up -d`
 2. **Accéder à la documentation** : http://localhost:8000/docs
 3. **Authentification** : Utiliser Keycloak (http://localhost:8080)
 
-## 📚 Endpoints Principaux
+## Endpoints Principaux
 
 * `GET /` - Point d'entrée de l'application
 * `GET /health` - Contrôle de santé

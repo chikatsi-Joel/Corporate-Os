@@ -27,7 +27,7 @@ Cette application permet de gérer la table de capitalisation d'une entreprise e
 
 ### Prérequis
 - Docker et Docker Compose
-- Python 3.11+ (pour le développement local)
+- Python 3.10+ (pour le développement local)
 
 ### 1. Cloner le projet
 ```bash
