@@ -5,10 +5,10 @@ from uuid import UUID
 
 
 class UserBase(BaseModel):
-    username: str = Field(..., description="Nom d'utilisateur unique", example="john.doe")
-    email: EmailStr = Field(..., description="Adresse email de l'utilisateur", example="john.doe@example.com")
-    first_name: Optional[str] = Field(None, description="Prénom de l'utilisateur", example="John")
-    last_name: Optional[str] = Field(None, description="Nom de famille de l'utilisateur", example="Doe")
+    username: str = Field(..., description="Nom d'utilisateur unique", example="gweunshy@gmail.com")
+    email: EmailStr = Field(..., description="Adresse email de l'utilisateur", example="gweunshy@gmail.com")
+    first_name: Optional[str] = Field(None, description="Prénom de l'utilisateur", example="Gradi")
+    last_name: Optional[str] = Field(None, description="Nom de famille de l'utilisateur", example="Joel")
     role: str = Field(..., description="Rôle de l'utilisateur", example="admin", pattern="^(admin|actionnaire)$")
 
 
@@ -19,9 +19,9 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     """Schéma pour la mise à jour d'un utilisateur"""
-    first_name: Optional[str] = Field(None, description="Prénom de l'utilisateur", example="John")
-    last_name: Optional[str] = Field(None, description="Nom de famille de l'utilisateur", example="Doe")
-    email: Optional[EmailStr] = Field(None, description="Adresse email de l'utilisateur", example="john.doe@example.com")
+    first_name: Optional[str] = Field(None, description="Prénom de l'utilisateur", example="Gradi")
+    last_name: Optional[str] = Field(None, description="Nom de famille de l'utilisateur", example="Joel")
+    email: Optional[EmailStr] = Field(None, description="Adresse email de l'utilisateur", example="gweunshy@gmail.com")
 
 
 class User(UserBase):
@@ -36,10 +36,10 @@ class User(UserBase):
         json_schema_extra = {
             "example": {
                 "id": "123e4567-e89b-12d3-a456-426614174000",
-                "username": "john.doe",
-                "email": "john.doe@example.com",
-                "first_name": "John",
-                "last_name": "Doe",
+                "username": "gweunshy@gmail.com",
+                "email": "gweunshy@gmail.com",
+                "first_name": "Gradi",
+                "last_name": "Joel",
                 "role": "admin",
                 "keycloak_id": "keycloak-user-123",
                 "created_at": "2024-01-01T00:00:00Z",
@@ -57,10 +57,10 @@ class UserWithShares(User):
         json_schema_extra = {
             "example": {
                 "id": "123e4567-e89b-12d3-a456-426614174000",
-                "username": "john.doe",
-                "email": "john.doe@example.com",
-                "first_name": "John",
-                "last_name": "Doe",
+                "username": "gweunshy@gmail.com",
+                "email": "gweunshy@gmail.com",
+                "first_name": "Gradi",
+                "last_name": "Joel",
                 "role": "actionnaire",
                 "keycloak_id": "keycloak-user-123",
                 "created_at": "2024-01-01T00:00:00Z",

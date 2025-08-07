@@ -8,7 +8,7 @@ from app.database.models import User
 from app.schemas.user import UserCreate, UserUpdate, User as UserSchema, UserWithShares
 from app.services.user_service import UserService
 from app.core.check_role import require_role, require_any_role
-from app.core.keycloak_service import KeycloakService
+from app.services.keycloak_service import KeycloakService
 from app.core.config import settings
 
 router = APIRouter(prefix="/shareholders", tags=["shareholders"])
@@ -53,10 +53,10 @@ async def get_shareholders(
     [
         {
             "id": "123e4567-e89b-12d3-a456-426614174000",
-            "username": "john.doe",
-            "email": "john.doe@example.com",
-            "first_name": "John",
-            "last_name": "Doe",
+            "username": "gweunshy",
+            "email": "gweunshy@example.com",
+            "first_name": "Gradi",
+            "last_name": "Joel",
             "role": "actionnaire",
             "total_shares": 1000,
             "total_value": 50000.0
@@ -95,10 +95,10 @@ async def create_shareholder(
     **Exemple de requête** :
     ```json
     {
-        "username": "jane.doe",
-        "email": "jane.doe@example.com",
-        "first_name": "Jane",
-        "last_name": "Doe",
+        "username": "chikatsi",
+        "email": "chikatsi@gmail.com",
+        "first_name": "Chikatsi",
+        "last_name": "Joel",
         "role": "actionnaire",
         "password": "securepassword123"
     }
@@ -177,10 +177,10 @@ async def get_shareholder(
     ```json
     {
         "id": "123e4567-e89b-12d3-a456-426614174000",
-        "username": "john.doe",
-        "email": "john.doe@example.com",
-        "first_name": "John",
-        "last_name": "Doe",
+        "username": "gweunshy",
+        "email": "gweunshy@gmail.com",
+        "first_name": "Gradi",
+        "last_name": "Joel",
         "role": "actionnaire",
         "total_shares": 1000,
         "total_value": 50000.0
