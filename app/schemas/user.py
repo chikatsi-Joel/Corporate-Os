@@ -14,7 +14,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     """Schéma pour la création d'un utilisateur"""
-    pass
+    password: str = Field(..., description="Mot de passe de l'utilisateur", example="securepassword123")
 
 
 class UserUpdate(BaseModel):

@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     keycloak_url: str = "http://keycloak:8080"
     keycloak_realm: str = "corporate-os"
     keycloak_client_id: str = "corporate-os-client"
+    keycloak_client_secret: str = "corporate-os-client-secret"  # Secret configuré dans le realm
     keycloak_admin_username: str = "admin"
     keycloak_admin_password: str = "admin"
     

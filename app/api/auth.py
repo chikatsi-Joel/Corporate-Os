@@ -2,9 +2,13 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from typing import Optional
-from app.core.auth import request_token, get_current_user, oauth2_scheme
+
+import requests
 from app.database.models import User
-import httpx
+from app.services.user_service import UserService
+from app.core.check_role import require_role, require_any_role
+from fastapi_keycloak_middleware import get_user, FastApiUser
+
 from app.core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
@@ -31,78 +35,95 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 
-@router.post("/token", response_model=TokenResponse)
-async def get_token(token_request: TokenRequest):
-    """
-    Demande un token d'accès à Keycloak
-    
-    Args:
-        token_request: Informations de connexion et type de grant
-    
-    Returns:
-        TokenResponse avec les informations du token
-    """
-    try:
-        token_data = request_token(
-            username=token_request.username,
-            password=token_request.password,
-            grant_type=token_request.grant_type
-        )
-        
-        return TokenResponse(
-            access_token=token_data.get("access_token"),
-            token_type=token_data.get("token_type", "Bearer"),
-            expires_in=token_data.get("expires_in", 300),
-            refresh_token=token_data.get("refresh_token"),
-            scope=token_data.get("scope")
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur lors de la demande de token: {str(e)}"
-        )
+class LoginRequest(BaseModel):
+    """Modèle pour les données de connexion"""
+    username: str
+    password: str
 
 
-@router.post("/token/refresh", response_model=TokenResponse)
-async def refresh_token(refresh_request: RefreshTokenRequest):
+class UserInfo(BaseModel):
+    """Informations de l'utilisateur"""
+    sub: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+    preferred_username: Optional[str] = None
+    roles: list[str] = []
+
+
+@router.post("/login", response_model=TokenResponse, summary="Authentification utilisateur")
+async def login(form_data: LoginRequest):
     """
-    Rafraîchit un token d'accès à partir d'un refresh token
+    Endpoint pour l'authentification utilisateur via Keycloak.
     
     Args:
-        refresh_request: Refresh token
+        form_data: Données du formulaire d'authentification (username et password)
     
     Returns:
-        TokenResponse avec les nouvelles informations du token
+        TokenResponse: Contient le token d'accès et les informations associées
+    
+    Raises:
+        HTTPException: Si l'authentification échoue
     """
     try:
-        token_data = request_token(
-            username="",  # Pas besoin pour refresh_token
-            password=refresh_request.refresh_token,
-            grant_type="refresh_token"
-        )
+        token_url = f"{settings.keycloak_url}/realms/{settings.keycloak_realm}/protocol/openid-connect/token"
         
+        token_data = {
+            'client_id': settings.keycloak_client_id,
+            'client_secret': settings.keycloak_client_secret,
+            'grant_type': 'password',
+            'username': form_data.username,
+            'password': form_data.password,
+            'scope': 'openid profile email'  # Scopes pour obtenir plus d'infos
+        }
+        
+        print(f"Tentative d'authentification pour l'utilisateur: {form_data.username}")
+        
+        response = requests.post(token_url, data=token_data)
+        
+        if response.status_code != 200:
+            print(f"Échec authentification Keycloak: {response.status_code} - {response.text}")
+            
+            if response.status_code == 401:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Nom d'utilisateur ou mot de passe incorrect"
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Erreur lors de l'authentification"
+                )
+        
+        token_info = response.json()
+        
+        print(f"Authentification réussie pour: {form_data.username}")
+        
+        # Retourner la réponse formatée
         return TokenResponse(
-            access_token=token_data.get("access_token"),
-            token_type=token_data.get("token_type", "Bearer"),
-            expires_in=token_data.get("expires_in", 300),
-            refresh_token=token_data.get("refresh_token"),
-            scope=token_data.get("scope")
+            access_token=token_info['access_token'],
+            token_type='Bearer',
+            expires_in=token_info['expires_in'],
+            refresh_token=token_info.get('refresh_token'),
+            scope=token_info.get('scope')
         )
         
-    except HTTPException:
-        raise
+    except requests.exceptions.RequestException as e:
+        print(f"Erreur réseau lors de l'authentification: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service d'authentification temporairement indisponible"
+        )
     except Exception as e:
+        print(f"Erreur inattendue lors de l'authentification: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur lors du rafraîchissement du token: {str(e)}"
+            detail="Erreur interne du serveur"
         )
+
 
 
 @router.get("/me")
-async def get_current_user_info(current_user: User = Depends(get_current_user)):
+async def get_current_user_info(current_user = require_any_role(['admin', 'actionnaire'])):
     """
     Récupère les informations de l'utilisateur actuel
     
@@ -113,112 +134,46 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         Informations de l'utilisateur
     """
     return {
-        "id": str(current_user.id),
-        "username": current_user.username,
-        "email": current_user.email,
-        "first_name": current_user.first_name,
-        "last_name": current_user.last_name,
-        "role": current_user.role,
-        "keycloak_id": current_user.keycloak_id
+        "sub": current_user.get('sub', ''),
+        "username": current_user.get('preferred_username', ''),
+        "last_name": current_user.get('family_name', ''),
+        "first_name": current_user.get('given_name', ''),
+        "email": current_user.get('email', ''),
+        "name": current_user.get('name', ''),
+        "roles": current_user.get('realm_access', {}).get('roles', [])
     }
 
 
 
-# Endpoint pour tester l'authentification selon votre exemple
-@router.get("/users/me")
-async def read_users_me(token: str = Depends(oauth2_scheme)):
-    """
-    Endpoint de test pour vérifier l'authentification
-    
-    Args:
-        token: Token JWT (injecté automatiquement)
-    
-    Returns:
-        Token reçu
-    """
-    return {"token": token}
-
-
 @router.get("/userinfo")
-async def get_userinfo(token: str = Depends(oauth2_scheme)):
+async def get_userinfo(current_user = Depends(get_user)):
     """
     Endpoint pour récupérer les informations utilisateur depuis Keycloak
     Compatible avec l'endpoint userinfo standard OAuth2/OpenID Connect
     
     Args:
-        token: Token JWT (injecté automatiquement)
+        current_user: Utilisateur actuel (injecté automatiquement)
     
     Returns:
         Informations utilisateur depuis Keycloak
     """
     try:
-        # URL de l'endpoint userinfo de Keycloak
-        userinfo_url = f"{settings.keycloak_url}/realms/{settings.keycloak_realm}/protocol/openid-connect/userinfo"
+        # Retourner directement les informations de l'utilisateur Keycloak
+        return {
+            "sub": current_user.get('sub', ''),
+            "username": current_user.get('preferred_username', ''),
+            "last_name": current_user.get('family_name', ''),
+            "first_name": current_user.get('given_name', ''),
+            "email": current_user.get('email', ''),
+            "name": current_user.get('name', ''),
+            "email_verified": current_user.get('email_verified', False),
+            "realm_access": current_user.get('realm_access', {}),
+            "resource_access": current_user.get('resource_access', {})
+        }
         
-        with httpx.Client() as client:
-            response = client.get(userinfo_url, headers={
-                "Authorization": f"Bearer {token}"
-            })
-        
-        if response.status_code != 200:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token invalide ou expiré"
-            )
-        
-        userinfo_data = response.json()
-        return userinfo_data
-        
-    except httpx.RequestError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service d'authentification indisponible"
-        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la récupération des informations utilisateur: {str(e)}"
         )
 
-
-@router.post("/introspect")
-async def introspect_token(token: str = Depends(oauth2_scheme)):
-    """
-    Endpoint pour introspecter un token
-    Compatible avec l'endpoint d'introspection standard OAuth2
-    
-    Args:
-        token: Token JWT (injecté automatiquement)
-    
-    Returns:
-        Informations d'introspection du token
-    """
-    try:
-        # URL de l'endpoint d'introspection de Keycloak
-        introspect_url = f"{settings.keycloak_url}/realms/{settings.keycloak_realm}/protocol/openid-connect/token/introspect"
-        
-        with httpx.Client() as client:
-            response = client.post(introspect_url, data={
-                "token": token,
-                "client_id": settings.keycloak_client_id
-            })
-        
-        if response.status_code != 200:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token invalide"
-            )
-        
-        introspect_data = response.json()
-        return introspect_data
-        
-    except httpx.RequestError as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service d'authentification indisponible"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur lors de l'introspection du token: {str(e)}"
-        ) 

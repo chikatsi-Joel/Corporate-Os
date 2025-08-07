@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, Text, Numeric, ForeignKey, CheckConstraint
+from sqlalchemy import Column, String, Integer, DateTime, Text, Numeric, ForeignKey, CheckConstraint, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -13,8 +13,9 @@ class User(Base):
     keycloak_id = Column(String(255), unique=True, nullable=False, index=True)
     username = Column(String(255), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
-    first_name = Column(String(255))
-    last_name = Column(String(255))
+    first_name = Column(String(255), nullable=True)
+    password = Column(String(255), nullable=True)  # Password is optional for Keycloak integration
+    last_name = Column(String(255), nullable=True)
     role = Column(String(50), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -32,11 +33,11 @@ class ShareholderProfile(Base):
     __tablename__ = "shareholder_profiles"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    company_name = Column(String(255))
-    address = Column(Text)
-    phone = Column(String(50))
-    tax_id = Column(String(100))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_name = Column(String(255), nullable=True)
+    address = Column(Text, nullable=True)
+    phone = Column(String(50), nullable=True)
+    tax_id = Column(String(100), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
@@ -48,13 +49,13 @@ class ShareIssuance(Base):
     __tablename__ = "share_issuances"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    shareholder_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    number_of_shares = Column(Integer, nullable=False)
+    shareholder_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    number_of_shares = Column(Integer, nullable=False, index=True)
     price_per_share = Column(Numeric(10, 2), nullable=False)
     total_amount = Column(Numeric(12, 2), nullable=False)
     issue_date = Column(DateTime, nullable=False, index=True)
-    certificate_path = Column(String(500))
-    status = Column(String(50), default="issued", index=True)
+    certificate_path = Column(String(500), nullable=True)
+    status = Column(String(50), default="issued", nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     

@@ -4,8 +4,10 @@ from app.core.config import settings
 from app.core.swagger import custom_openapi_schema, get_swagger_ui_parameters
 from app.database.database import engine
 from app.database import models
+from fastapi_keycloak_middleware import KeycloakConfiguration, setup_keycloak_middleware, AuthorizationMethod
 from app.api import auth, shareholders, issuances
 import logging
+import typing
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -128,6 +130,53 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+excluded_routes = [
+    "/status",
+    "/auth/login",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+]
+
+async def map_user(userinfo: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
+    """
+    Mapper pour transformer les informations utilisateur de Keycloak.
+    
+    Cette fonction reçoit le JWT décodé complet et doit retourner toutes les informations
+    nécessaires, y compris les rôles dans realm_access.
+    
+    Args:
+        userinfo: Le JWT décodé complet de Keycloak
+        
+    Returns:
+        Dict contenant toutes les informations utilisateur nécessaires
+    """
+    
+    # Debug: Afficher le contenu complet du JWT pour diagnostic
+    logger.info(f"🔍 JWT décodé complet reçu dans map_user: {userinfo}")
+    
+
+    return userinfo
+
+
+config = KeycloakConfiguration(
+    url=settings.keycloak_url,
+    realm=settings.keycloak_realm,
+    client_id=settings.keycloak_client_id,
+    client_secret=settings.keycloak_client_secret,
+    claims=[
+        "sub", 
+        "name", 
+        "email", 
+        "preferred_username", 
+        "given_name", 
+        "family_name",
+        "realm_access"
+    ],
+)
+
+setup_keycloak_middleware(app, config, user_mapper=map_user, exclude_patterns=excluded_routes)
+
 # Inclure les routes
 app.include_router(auth.router)
 app.include_router(shareholders.router)
@@ -171,4 +220,4 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(app, host="0.0.0.0", port=8000)

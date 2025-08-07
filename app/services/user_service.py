@@ -10,11 +10,7 @@ class UserService:
     @staticmethod
     def get_user_by_id(db: Session, user_id: UUID) -> Optional[User]:
         return db.query(User).filter(User.id == user_id).first()
-    
-    @staticmethod
-    def get_user_by_keycloak_id(db: Session, keycloak_id: str) -> Optional[User]:
-        return db.query(User).filter(User.keycloak_id == keycloak_id).first()
-    
+
     @staticmethod
     def get_user_by_username(db: Session, username: str) -> Optional[User]:
         return db.query(User).filter(User.username == username).first()
@@ -33,7 +29,12 @@ class UserService:
     
     @staticmethod
     def create_user(db: Session, user: UserCreate) -> User:
-        db_user = User(**user.dict())
+        # Extraire les données du schéma en excluant le mot de passe pour la base de données locale
+        user_data = user.dict()
+        password = user_data.pop('password', None)  # Retirer le mot de passe
+        
+        # Créer l'utilisateur sans le mot de passe (qui est géré par Keycloak)
+        db_user = User(**user_data)
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
@@ -86,19 +87,18 @@ class UserService:
     
     @staticmethod
     def get_shareholders_with_shares(db: Session, skip: int = 0, limit: int = 100) -> List[dict]:
-        """Récupère tous les actionnaires avec leurs actions - Optimisé avec une seule requête"""
+        """Retourne la liste des actionnaires avec leurs actions - Optimisé avec une seule requête"""
         from app.database.models import ShareIssuance
         
         results = db.query(
             User,
             func.coalesce(func.sum(ShareIssuance.number_of_shares), 0).label('total_shares'),
             func.coalesce(func.sum(ShareIssuance.total_amount), 0).label('total_value')
-        ).outerjoin(ShareIssuance, User.id == ShareIssuance.shareholder_id)\
-         .filter(User.role == 'actionnaire').group_by(User.id).offset(skip).limit(limit).all()
+        ).outerjoin(ShareIssuance, User.id == ShareIssuance.shareholder_id).filter(User.role == 'actionnaire').group_by(User.id).offset(skip).limit(limit).all()
         
-        shareholders_data = []
+        shareholders = []
         for result in results:
-            user_dict = {
+            shareholder_dict = {
                 'id': result[0].id,
                 'username': result[0].username,
                 'email': result[0].email,
@@ -108,9 +108,9 @@ class UserService:
                 'total_shares': int(result[1]),
                 'total_value': float(result[2])
             }
-            shareholders_data.append(user_dict)
+            shareholders.append(shareholder_dict)
         
-        return shareholders_data
+        return shareholders
     
     @staticmethod
     def get_shareholder_summary(db: Session, shareholder_id: UUID) -> Optional[dict]:

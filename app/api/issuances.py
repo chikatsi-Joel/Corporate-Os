@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from app.core.check_role import require_any_role, require_role
 from app.database.database import get_db
-from app.core.auth import get_current_user, require_admin
 from app.database.models import User, ShareIssuance
 from app.schemas.issuance import ShareIssuanceCreate, ShareIssuance as ShareIssuanceSchema, ShareIssuanceWithShareholder
 from app.services.issuance_service import IssuanceService
@@ -19,7 +19,6 @@ router = APIRouter(prefix="/api/issuances", tags=["issuances"])
 async def get_issuances(
     skip: int = Query(0, ge=0, description="Nombre d'éléments à ignorer", example=0),
     limit: int = Query(100, ge=1, le=1000, description="Nombre maximum d'éléments à retourner", example=100),
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -64,20 +63,13 @@ async def get_issuances(
     ]
     ```
     """
-    if current_user.role == 'admin':
-        # Admin voit toutes les émissions
-        issuances = IssuanceService.get_issuances_with_shareholder_info(db, skip=skip, limit=limit)
-    else:
-        # Actionnaire ne voit que ses propres émissions
-        issuances = IssuanceService.get_issuances_with_shareholder_info(db, skip=skip, limit=limit, shareholder_id=current_user.id)
-    
-    return issuances
+    pass
 
 
-@router.post("/", response_model=ShareIssuanceSchema, summary="Créer une émission d'actions", status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=ShareIssuanceSchema, summary="Créer une émission d'actions",
+             dependencies=[require_role('admin')], status_code=status.HTTP_201_CREATED)
 async def create_issuance(
     issuance: ShareIssuanceCreate,
-    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """
@@ -143,7 +135,6 @@ async def create_issuance(
 @router.get("/{issuance_id}", response_model=ShareIssuanceWithShareholder, summary="Détails d'une émission")
 async def get_issuance(
     issuance_id: UUID,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -188,36 +179,12 @@ async def get_issuance(
     }
     ```
     """
-    issuance = IssuanceService.get_issuance_by_id(db, issuance_id)
-    if not issuance:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Émission non trouvée"
-        )
-    
-    # Vérifier les permissions
-    if current_user.role != 'admin' and current_user.id != issuance.shareholder_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès refusé"
-        )
-    
-    # Récupérer les informations complètes avec l'actionnaire
-    issuances_with_info = IssuanceService.get_issuances_with_shareholder_info(db, shareholder_id=issuance.shareholder_id)
-    for issuance_info in issuances_with_info:
-        if issuance_info['id'] == issuance_id:
-            return issuance_info
-    
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Émission non trouvée"
-    )
+    pass
 
-
-@router.get("/{issuance_id}/certificate", summary="Télécharger le certificat PDF")
+@router.get("/{issuance_id}/certificate", summary="Télécharger le certificat PDF",
+            dependencies=[require_any_role(['admin', 'actionnaire'])])
 async def download_certificate(
     issuance_id: UUID,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -246,38 +213,17 @@ async def download_certificate(
     
     [Contenu binaire du PDF]
     ```
-    """
-    issuance = IssuanceService.get_issuance_by_id(db, issuance_id)
-    if not issuance:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Émission non trouvée"
-        )
-    
-    # Vérifier les permissions
-    if current_user.role != 'admin' and current_user.id != issuance.shareholder_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès refusé"
-        )
-    
-    # Vérifier que le certificat existe
-    if not issuance.certificate_path or not os.path.exists(issuance.certificate_path):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Certificat non trouvé"
-        )
-    
     return FileResponse(
         path=issuance.certificate_path,
         filename=f"certificate_{issuance_id}.pdf",
         media_type="application/pdf"
     )
+    """
 
 
-@router.get("/cap-table/summary", summary="Résumé de la Cap Table")
+@router.get("/cap-table/summary", summary="Résumé de la Cap Table",
+            dependencies=[require_role('admin')])
 async def get_cap_table_summary(
-    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """

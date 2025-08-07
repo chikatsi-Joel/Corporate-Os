@@ -30,4 +30,9 @@ httpx==0.25.2
 
 # Testing
 pytest==7.4.3
-pytest-asyncio==0.21.1 
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+httpx==0.25.2
+
+# Keycloak middleware
+fastapi-keycloak-middleware
