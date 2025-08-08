@@ -42,7 +42,6 @@ async def get_issuances(
     - `401 Unauthorized` : Token invalide ou expiré
  
     """
-    print("user :   @@@@@   ", user)
     if 'admin' in user['realm_access']['roles'] :
         usersId = UserService.get_user_by_email(db, user['email']).id
         issuances = IssuanceService.get_issuances_by_id(db, usersId, skip=skip, limit=limit)
@@ -177,6 +176,7 @@ async def create_issuance(
 @router.get("/{issuance_id}",
              response_model=ShareIssuanceWithShareholder, summary="Détails d'une émission")
 async def get_issuance(
+    issuance_id: UUID,
     user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -200,7 +200,30 @@ async def get_issuance(
     - `401 Unauthorized` : Token invalide ou expiré
 
     """
-    print(user)
+    users = UserService.get_user_by_email(db, user['email'])
+    val = IssuanceService.get_issuance_by_id(db, users.id, issuance_id, 'admin' in user['realm_access']['roles'])
+    return {
+                "id": val.id,
+                "shareholder_id": val.shareholder_id,
+                "shares_count": val.number_of_shares,
+                "share_price": float(val.price_per_share),
+                "total_amount": float(val.total_amount),
+                "issue_date": val.issue_date,
+                "status": val.status,
+                "certificate_path": val.certificate_path,
+                "created_at": val.created_at,
+                "updated_at": val.updated_at,
+                "shareholder": {
+                    "id": val.shareholder.id,
+                    "username": val.shareholder.username,
+                    "email": val.shareholder.email,
+                    "first_name": val.shareholder.first_name,
+                    "last_name": val.shareholder.last_name,
+                    "role": val.shareholder.role,
+                    "created_at": val.shareholder.created_at,
+                    "updated_at": val.shareholder.updated_at
+                }
+    }
 
 @router.get("/{issuance_id}/certificate", summary="Télécharger le certificat PDF",
             dependencies=[require_any_role(['admin', 'actionnaire'])])

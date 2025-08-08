@@ -221,6 +221,7 @@ async def get_shareholder(
             summary="Résumé des actions d'un actionnaire")
 async def get_shareholder_summary(
     shareholder_id: UUID,
+    user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -258,6 +259,12 @@ async def get_shareholder_summary(
     from app.services.issuance_service import IssuanceService
     
     shareholder = UserService.get_user_by_id(db, shareholder_id)
+    if shareholder.email != user['email'] and 'admin' not in user['realm_access']['roles']:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vous n'avez pas le droit de voir ce résumé"
+        )
+    
     if not shareholder:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
