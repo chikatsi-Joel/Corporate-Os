@@ -42,11 +42,17 @@ async def get_issuances(
     - `401 Unauthorized` : Token invalide ou expiré
  
     """
+
+    issuances = []
     if 'admin' in user['realm_access']['roles'] :
+        issuances = IssuanceService.get_issuances(db, skip=skip, limit=limit)
+                                                      
+    else:
         usersId = UserService.get_user_by_email(db, user['email']).id
         issuances = IssuanceService.get_issuances_by_id(db, usersId, skip=skip, limit=limit)
-    else:
-        issuances = IssuanceService.get_issuances(db, skip=skip, limit=limit)
+        print("menteru : ", issuances)
+
+    print("\n\n issuances : ", issuances)
 
     res = [
         {
@@ -66,7 +72,7 @@ async def get_issuances(
                     "email": val.shareholder.email,
                     "first_name": val.shareholder.first_name,
                     "last_name": val.shareholder.last_name,
-                    "role": val.shareholder.role,
+                    "user_type": val.shareholder.user_type,
                     "created_at": val.shareholder.created_at,
                     "updated_at": val.shareholder.updated_at
                 } if val.shareholder else None
@@ -201,7 +207,24 @@ async def get_issuance(
 
     """
     users = UserService.get_user_by_email(db, user['email'])
-    val = IssuanceService.get_issuance_by_id(db, users.id, issuance_id, 'admin' in user['realm_access']['roles'])
+
+    val = IssuanceService.get_issuance_by_id(db, issuance_id)
+    if not val:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Émission non trouvée"
+        )
+    
+    print(f"value : {val.shareholder.email}")
+    
+    if val.shareholder_id != users.id:
+        if 'admin' not in user['realm_access']['roles']:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Vous n'avez pas le droit de voir cette émission"
+            )
+        
+        
     return {
                 "id": val.id,
                 "shareholder_id": val.shareholder_id,
@@ -219,7 +242,7 @@ async def get_issuance(
                     "email": val.shareholder.email,
                     "first_name": val.shareholder.first_name,
                     "last_name": val.shareholder.last_name,
-                    "role": val.shareholder.role,
+                    "user_type": val.shareholder.user_type,
                     "created_at": val.shareholder.created_at,
                     "updated_at": val.shareholder.updated_at
                 }
@@ -256,29 +279,33 @@ async def download_certificate(
     
     # Récupérer l'émission
     users = UserService.get_user_by_email(db, user['email'])
+
     issuance = IssuanceService.get_issuance_by_id(
         db, 
-        users.id,
-        issuance_id, 
-        'admin' in user['realm_access']['roles'])
+        issuance_id)
+    
     if not issuance:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Émission non trouvée"
         )
-        
-    # Vérifier que le certificat existe
-    if not issuance.certificate_path or not os.path.exists(issuance.certificate_path):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Certificat non trouvé"
-        )
     
-    return FileResponse(
-        path=issuance.certificate_path,
-        filename=f"certificate_{issuance_id}.pdf",
-        media_type="application/pdf"
-    )
+    if issuance.shareholder_id == users.id or 'admin' in user['realm_access']['roles']:
+
+        if not issuance.certificate_path or not os.path.exists(issuance.certificate_path):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Certificat non trouvé"
+                )
+        return FileResponse(
+            path=issuance.certificate_path,
+            filename=f"certificate_{issuance_id}.pdf",
+            media_type="application/pdf"
+        )
+    raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Vous êtes trop curieux..."
+                )
 
 
 @router.get("/cap-table/summary", summary="Résumé de la Cap Table",

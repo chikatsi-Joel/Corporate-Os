@@ -23,11 +23,9 @@ class KeycloakService:
         self.admin_password = admin_password
         self.admin_token = None
 
-    
     def get_admin_token(self) -> str:
         """Obtient un token d'administration pour Keycloak"""
         try:
-
             url = f"{self.server_url}/realms/master/protocol/openid-connect/token"
             
             payload = {
@@ -48,7 +46,6 @@ class KeycloakService:
             logger.error(f"Erreur lors de l'obtention du token admin: {e}")
             raise HTTPException(status_code=500, detail="Impossible d'obtenir le token admin")
 
-    
     def create_user(self, username: str, email: str, password: str, first_name: str = None, last_name: str = None, role: str = None) -> Dict[str, Any]:
         """Crée un utilisateur dans Keycloak"""
         try:
@@ -93,11 +90,11 @@ class KeycloakService:
                 user_id = self._get_user_id_by_username(username)
                 print(f"\n\nID utilisateur trouvé par nom d'utilisateur: {user_id}")
             
-            # Assigner le rôle si spécifié
             if role and user_id:
                 try:
-                    print(f"\n\nID utilisateur trouvé par nom d'utilisateur: {user_id}")
+                    print(f"\n\nAssignation du rôle {role} à l'utilisateur {user_id}")
                     self.assign_role_to_user(user_id, role)
+                    self.remove_default_roles_from_user(user_id)
                 except Exception as e:
                     logger.warning(f"Erreur lors de l'assignation du rôle {role} à l'utilisateur {username}: {e}")
             
@@ -122,7 +119,7 @@ class KeycloakService:
             
             url = f"{self.server_url}/admin/realms/{self.realm_name}/users"
             headers = {'Authorization': f'Bearer {self.admin_token}'}
-            params = {'username': username}
+            params = {'username': username, 'exact': True}
             
             response = requests.get(url, headers=headers, params=params)
             response.raise_for_status()
@@ -136,29 +133,99 @@ class KeycloakService:
             logger.error(f"Erreur lors de la recherche de l'utilisateur: {e}")
             return None
 
-    
-    def assign_role_to_user(self, user_id: str, role_name: str):
-        """Assigne un rôle à un utilisateur"""
+    def get_realm_role(self, role_name: str) -> Optional[Dict[str, Any]]:
+        """Récupère les informations d'un rôle realm"""
         try:
             if not self.admin_token:
                 self.get_admin_token()
             
-            # Récupérer le rôle
+            url = f"{self.server_url}/admin/realms/{self.realm_name}/roles/{role_name}"
+            headers = {'Authorization': f'Bearer {self.admin_token}'}
+            
+            response = requests.get(url, headers=headers)
+            if response.status_code == 404:
+                logger.warning(f"Le rôle {role_name} n'existe pas")
+                return None
+            
+            response.raise_for_status()
+            return response.json()
+            
+        except requests.RequestException as e:
+            logger.error(f"Erreur lors de la récupération du rôle {role_name}: {e}")
+            return None
+
+    def assign_role_to_user(self, user_id: str, role_name: str):
+        """Assigne un rôle realm à un utilisateur"""
+        try:
+            if not self.admin_token:
+                self.get_admin_token()
+            
+            # Récupérer les informations du rôle
+            role_data = self.get_realm_role(role_name)
+            if not role_data:
+                logger.error(f"Le rôle {role_name} n'existe pas")
+                return False
+            
             headers = {
                 'Authorization': f'Bearer {self.admin_token}',
                 'Content-Type': 'application/json'
             }
         
-            # Assigner le rôle à l'utilisateur
+            # Assigner le rôle à l'utilisateur avec toutes les informations nécessaires
             assign_url = f"{self.server_url}/admin/realms/{self.realm_name}/users/{user_id}/role-mappings/realm"
-            assign_response = requests.post(assign_url, json=[role_name], headers=headers)
+            role_payload = [{
+                "id": role_data["id"],
+                "name": role_data["name"],
+                "description": role_data.get("description", ""),
+                "composite": role_data.get("composite", False),
+                "clientRole": role_data.get("clientRole", False),
+                "containerId": role_data.get("containerId", self.realm_name)
+            }]
+            
+            assign_response = requests.post(assign_url, json=role_payload, headers=headers)
             assign_response.raise_for_status()
+            
+            logger.info(f"Rôle {role_name} assigné avec succès à l'utilisateur {user_id}")
+            return True
             
         except requests.RequestException as e:
             logger.error(f"Erreur lors de l'assignation du rôle: {e}")
+            if hasattr(e, 'response') and e.response:
+                logger.error(f"Réponse d'erreur: {e.response.text}")
+            return False
+
+    def remove_default_roles_from_user(self, user_id: str):
+        """Supprime les rôles par défaut d'un utilisateur (optionnel)"""
+        try:
+            if not self.admin_token:
+                self.get_admin_token()
+            
+            headers = {'Authorization': f'Bearer {self.admin_token}'}
+            
+            # Récupérer les rôles actuels de l'utilisateur
+            get_roles_url = f"{self.server_url}/admin/realms/{self.realm_name}/users/{user_id}/role-mappings/realm"
+            response = requests.get(get_roles_url, headers=headers)
+            response.raise_for_status()
+            
+            current_roles = response.json()
+            
+            # Identifier les rôles par défaut à supprimer
+            default_roles_to_remove = []
+            for role in current_roles:
+                if role["name"] in ["default-roles-corporate-os", "offline_access", "uma_authorization"]:
+                    default_roles_to_remove.append(role)
+            
+            # Supprimer les rôles par défaut
+            if default_roles_to_remove:
+                headers['Content-Type'] = 'application/json'
+                delete_response = requests.delete(get_roles_url, json=default_roles_to_remove, headers=headers)
+                delete_response.raise_for_status()
+                logger.info(f"Rôles par défaut supprimés pour l'utilisateur {user_id}")
+            
+        except requests.RequestException as e:
+            logger.warning(f"Erreur lors de la suppression des rôles par défaut: {e}")
             # Ne pas lever d'exception car ce n'est pas critique
 
-    
     def delete_user(self, user_id: str):
         """Supprime un utilisateur de Keycloak"""
         if not self.admin_token:
@@ -177,6 +244,39 @@ class KeycloakService:
             logger.error(f"Erreur lors de la suppression de l'utilisateur: {e}")
             raise HTTPException(status_code=500, detail="Erreur lors de la suppression de l'utilisateur")
 
+    def create_realm_role(self, role_name: str, description: str = None):
+        """Crée un nouveau rôle realm s'il n'existe pas"""
+        try:
+            if not self.admin_token:
+                self.get_admin_token()
+            
+            # Vérifier si le rôle existe déjà
+            if self.get_realm_role(role_name):
+                logger.info(f"Le rôle {role_name} existe déjà")
+                return True
+            
+            url = f"{self.server_url}/admin/realms/{self.realm_name}/roles"
+            headers = {
+                'Authorization': f'Bearer {self.admin_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            role_data = {
+                "name": role_name,
+                "description": description or f"Rôle {role_name}",
+                "composite": False,
+                "clientRole": False
+            }
+            
+            response = requests.post(url, json=role_data, headers=headers)
+            response.raise_for_status()
+            
+            logger.info(f"Rôle {role_name} créé avec succès")
+            return True
+            
+        except requests.RequestException as e:
+            logger.error(f"Erreur lors de la création du rôle {role_name}: {e}")
+            return False
 
 
 keycloak_service = KeycloakService(

@@ -25,7 +25,7 @@ class UserService:
     
     @staticmethod
     def get_shareholders(db: Session, skip: int = 0, limit: int = 100) -> List[User]:
-        return db.query(User).filter(User.role == 'actionnaire').offset(skip).limit(limit).all()
+        return db.query(User).filter(User.user_type == 'actionnaire').offset(skip).limit(limit).all()
     
     @staticmethod
     def create_user(db: Session, user: UserCreate) -> User:
@@ -79,7 +79,7 @@ class UserService:
                 'email': result[0].email,
                 'first_name': result[0].first_name,
                 'last_name': result[0].last_name,
-                'role': result[0].role,
+                'user_type': result[0].user_type,
                 'total_shares': int(result[1]),
                 'total_value': float(result[2]),
                 'created_at' : result[0].created_at,
@@ -97,7 +97,7 @@ class UserService:
             User,
             func.coalesce(func.sum(ShareIssuance.number_of_shares), 0).label('total_shares'),
             func.coalesce(func.sum(ShareIssuance.total_amount), 0).label('total_value')
-        ).outerjoin(ShareIssuance, User.id == ShareIssuance.shareholder_id).filter(User.role == 'actionnaire').group_by(User.id).offset(skip).limit(limit).all()
+        ).outerjoin(ShareIssuance, User.id == ShareIssuance.shareholder_id).filter(User.user_type == 'actionnaire').group_by(User.id).offset(skip).limit(limit).all()
         
         shareholders = []
         for result in results:
@@ -108,7 +108,7 @@ class UserService:
                 'email': result[0].email,
                 'first_name': result[0].first_name,
                 'last_name': result[0].last_name,
-                'role': result[0].role,
+                'user_type': result[0].user_type,
                 'total_shares': int(result[1]),
                 'total_value': float(result[2]),
                 'created_at' : result[0].created_at,

@@ -25,6 +25,7 @@ keycloak_service = KeycloakService(
 @router.get("/", response_model=List[UserWithShares], 
             dependencies=[require_role('admin')], summary="Liste des actionnaires")
 async def get_shareholders(
+    user = Depends(get_current_user),
     skip: int = Query(0, ge=0, description="Nombre d'éléments à ignorer", example=0),
     limit: int = Query(100, ge=1, le=1000, description="Nombre maximum d'éléments à retourner", example=100),
     db: Session = Depends(get_db)
@@ -55,7 +56,7 @@ async def get_shareholders(
             "email": "gweunshy@example.com",
             "first_name": "Gradi",
             "last_name": "Joel",
-            "role": "actionnaire",
+            "user_type": "actionnaire",
             "total_shares": 1000,
             "total_value": 50000.0
         }
@@ -126,7 +127,7 @@ async def create_shareholder(
             password=shareholder.password,
             first_name=shareholder.first_name,
             last_name=shareholder.last_name,
-            role=shareholder.role
+            role=shareholder.user_type
         )
         
         shareholder.keycloak_id = keycloak_response.get('id')
@@ -198,22 +199,21 @@ async def get_shareholder(
             detail="Actionnaire non trouvé"
         )
     
-    if (shareholder.email != user['email'] or ('admin' not in user['realm_access']['roles'])):
-        raise HTTPException(
+    if ('admin' in user['realm_access']['roles']) or (shareholder.email == user['email']):    
+        print("sharefolder : ", shareholder)
+        
+        shareholder_with_shares = UserService.get_user_with_shares(db, shareholder_id)
+        if not shareholder_with_shares:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Actionnaire non trouvé"
+            )
+        
+        return shareholder_with_shares
+    raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Vous n'avez pas le droit."
         )
-    
-    print("sharefolder : ", shareholder)
-    
-    shareholder_with_shares = UserService.get_user_with_shares(db, shareholder_id)
-    if not shareholder_with_shares:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Actionnaire non trouvé"
-        )
-    
-    return shareholder_with_shares
 
 
 @router.get("/{shareholder_id}/summary", 
@@ -259,17 +259,19 @@ async def get_shareholder_summary(
     from app.services.issuance_service import IssuanceService
     
     shareholder = UserService.get_user_by_id(db, shareholder_id)
+
+    if not shareholder:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Actionnaire non trouvé"
+        )
+    
     if shareholder.email != user['email'] and 'admin' not in user['realm_access']['roles']:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Vous n'avez pas le droit de voir ce résumé"
         )
     
-    if not shareholder:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Actionnaire non trouvé"
-        )
     
     summary = IssuanceService.get_shareholder_summary(db, shareholder_id)
     if not summary:

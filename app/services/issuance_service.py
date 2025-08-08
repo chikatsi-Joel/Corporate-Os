@@ -8,14 +8,13 @@ from datetime import date, datetime
 import os
 from app.services.certificate_service import CertificateService
 from sqlalchemy import func, and_
-from core.events.decorators import publish_event, EventType, publish_event_async
+from bus_event.events.decorators import publish_event, EventType, publish_event_async
 
 
 class IssuanceService:
     @staticmethod
-    def get_issuance_by_id(db: Session, user_id : UUID, issuance_id: UUID, isAdmin : bool) -> Optional[ShareIssuance]:
-        print(f"params : user_id ({user_id}), issuance_id ({issuance_id}) and isAdmin ({isAdmin})")
-        return db.query(ShareIssuance).filter(ShareIssuance.shareholder_id == issuance_id or isAdmin).filter(ShareIssuance.id == issuance_id).first()
+    def get_issuance_by_id(db: Session, issuance_id: UUID) -> Optional[ShareIssuance]:
+        return db.query(ShareIssuance).filter(ShareIssuance.id == issuance_id).first()
     
     @staticmethod
     def get_issuances(db: Session, skip: int = 0, limit: int = 100) -> List[ShareIssuance]:
@@ -23,7 +22,7 @@ class IssuanceService:
     
     @staticmethod
     def get_issuances_by_id(db: Session, user_id: UUID, skip: int = 0, limit: int = 100) -> List[ShareIssuance]:
-        return db.query(ShareIssuance).offset(skip).limit(limit).all()
+        return db.query(ShareIssuance).filter(ShareIssuance.id == user_id).offset(skip).limit(limit).all()
     
     @staticmethod
     def get_issuances_by_shareholder(db: Session, shareholder_id: UUID, skip: int = 0, limit: int = 100) -> List[ShareIssuance]:
@@ -110,8 +109,8 @@ class IssuanceService:
             User.last_name,
             func.coalesce(func.sum(ShareIssuance.number_of_shares), 0).label('shares'),
             func.coalesce(func.sum(ShareIssuance.total_amount), 0).label('value')
-        ).outerjoin(ShareIssuance, and_(User.id == ShareIssuance.shareholder_id, User.role == 'actionnaire'))\
-         .filter(User.role == 'actionnaire')\
+        ).outerjoin(ShareIssuance, and_(User.id == ShareIssuance.shareholder_id, User.user_type == 'actionnaire'))\
+         .filter(User.user_type == 'actionnaire')\
          .group_by(User.id, User.username, User.first_name, User.last_name)\
          .all()
         

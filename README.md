@@ -1,16 +1,16 @@
 # Corporate OS - Plateforme de Gestion de Cap Table
 
-## 🎯 Objectif du Projet
+## Objectif du Projet
 
 Corporate OS est une plateforme moderne de gestion de table de capitalisation (Cap Table) conçue pour les entreprises en croissance. Elle permet de gérer les actionnaires, les émissions d'actions, et de générer automatiquement des certificats d'actions tout en assurant une traçabilité complète des opérations.
 
-## 🏗️ Architecture Technique
+##  Architecture Technique
 
 ### **Pourquoi cette stack technologique ?**
 
 #### **Backend - FastAPI**
 - **Performance** : FastAPI est l'un des frameworks Python les plus rapides, basé sur Starlette et Pydantic
-- **Type Safety** : Validation automatique des types avec Pydantic, réduisant les bugs en production
+- **Type Safety** : Validation automatique des types avec Pydantic, réduisant les bugs 
 - **Documentation Auto-générée** : OpenAPI/Swagger intégré, facilitant l'intégration et les tests
 - **Async/Await** : Support natif de l'asynchrone pour une meilleure performance sous charge
 - **Écosystème Riche** : Large communauté et nombreuses intégrations disponibles
@@ -43,7 +43,7 @@ Corporate OS est une plateforme moderne de gestion de table de capitalisation (C
 - **Flexibilité** : Adapté aux besoins spécifiques du projet
 - **Maintenance** : Code source contrôlé et facilement modifiable
 
-#### **Génération PDF - ReportLab**
+#### **Génération PDF**
 - **Performance** : Génération rapide de documents complexes
 - **Flexibilité** : Contrôle total sur la mise en page et le design
 - **Sécurité** : Possibilité d'ajouter des filigranes et signatures
@@ -63,13 +63,6 @@ Corporate OS est une plateforme moderne de gestion de table de capitalisation (C
 - **Documentation** : Génération automatique de schémas OpenAPI
 - **Intégration** : Parfaitement intégré avec FastAPI
 - **Extensibilité** : Validateurs personnalisés faciles à créer
-
-## 🚀 Installation et Démarrage
-
-### Prérequis
-- Docker et Docker Compose
-- Git
-- 4GB RAM minimum
 
 ### Démarrage Rapide
 ```bash
@@ -243,50 +236,3 @@ docker compose restart app
 docker compose logs -f app
 ```
 
-## 📚 Documentation
-
-### **API Documentation**
-- **Swagger UI** : http://localhost:8000/docs
-- **ReDoc** : http://localhost:8000/redoc
-- **OpenAPI** : http://localhost:8000/openapi.json
-
-### **Documentation Technique**
-- **Architecture** : [docs/architecture.md](docs/architecture.md)
-- **API Reference** : [docs/api.md](docs/api.md)
-- **Deployment** : [docs/deployment.md](docs/deployment.md)
-- **Troubleshooting** : [docs/troubleshooting.md](docs/troubleshooting.md)
-
-## 🤝 Contribution
-
-### **Guidelines**
-1. **Fork** le projet
-2. **Créer** une branche feature (`git checkout -b feature/AmazingFeature`)
-3. **Commit** les changements (`git commit -m 'Add AmazingFeature'`)
-4. **Push** vers la branche (`git push origin feature/AmazingFeature`)
-5. **Ouvrir** une Pull Request
-
-### **Standards de Code**
-- **PEP 8** : Style de code Python
-- **Type Hints** : Annotations de types obligatoires
-- **Docstrings** : Documentation des fonctions
-- **Tests** : Couverture de code > 80%
-
-## 📄 Licence
-
-Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
-
-## 🆘 Support
-
-### **Communauté**
-- **Issues** : [GitHub Issues](https://github.com/votre-org/corporate-os/issues)
-- **Discussions** : [GitHub Discussions](https://github.com/votre-org/corporate-os/discussions)
-- **Wiki** : [Documentation Wiki](https://github.com/votre-org/corporate-os/wiki)
-
-### **Contact**
-- **Email** : support@corporate-os.com
-- **Slack** : [Corporate OS Community](https://corporate-os.slack.com)
-- **Documentation** : [docs.corporate-os.com](https://docs.corporate-os.com)
-
----
-
-**Corporate OS** - Simplifiez la gestion de votre Cap Table 🚀 

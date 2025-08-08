@@ -24,6 +24,11 @@ class NotificationStatus(str, enum.Enum):
     FAILED = "failed"
     READ = "read"
 
+class UserType(str, enum.Enum):
+    """type user"""
+    ADMIN = "admin"
+    ACTIONNAIRE = "actionnaire"
+
 
 class User(Base):
     __tablename__ = "users"
@@ -34,33 +39,14 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     first_name = Column(String(255), nullable=True)
     last_name = Column(String(255), nullable=True)
-    role = Column(String(50), nullable=False, index=True)
+    user_type = Column(String(50), nullable=True)  
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relations
-    shareholder_profile = relationship("ShareholderProfile", back_populates="user", uselist=False)
     share_issuances = relationship("ShareIssuance", back_populates="shareholder")
     
-    __table_args__ = (
-        CheckConstraint(role.in_(['admin', 'actionnaire']), name='valid_role'),
-    )
 
-
-class ShareholderProfile(Base):
-    __tablename__ = "shareholder_profiles"
-    
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    company_name = Column(String(255), nullable=True)
-    address = Column(Text, nullable=True)
-    phone = Column(String(50), nullable=True)
-    tax_id = Column(String(100), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    
-    # Relations
-    user = relationship("User", back_populates="shareholder_profile")
 
 
 class ShareIssuance(Base):
@@ -77,7 +63,6 @@ class ShareIssuance(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
-    # Relations
     shareholder = relationship("User", back_populates="share_issuances")
     
     __table_args__ = (
@@ -102,11 +87,9 @@ class AuditEvent(Base):
     user_email = Column(String(255), nullable=True)
     user_role = Column(String(50), nullable=True)
     
-    # Contexte de l'action
     resource_type = Column(String(50), nullable=True)  # shareholder, share_issuance, etc.
     resource_id = Column(String(100), nullable=True)   # ID de la ressource concernée
     
-    # Détails de l'événement
     action = Column(String(100), nullable=False)       # create, update, delete, view, etc.
     description = Column(Text, nullable=True)
     

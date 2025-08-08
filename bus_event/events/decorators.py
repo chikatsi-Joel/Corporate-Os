@@ -30,7 +30,6 @@ def event_handler(event_type: Union[EventType, str], async_handler: bool = False
             await send_notification(event.payload)
     """
     def decorator(func: Callable) -> Callable:
-        # Convertir string en EventType si nécessaire
         if isinstance(event_type, str):
             try:
                 actual_event_type = EventType(event_type)
@@ -40,7 +39,6 @@ def event_handler(event_type: Union[EventType, str], async_handler: bool = False
         else:
             actual_event_type = event_type
         
-        # Enregistrer le handler
         event_bus.subscribe(actual_event_type, func, async_handler)
         
         @functools.wraps(func)
@@ -67,7 +65,6 @@ def publish_event(event_type: Union[EventType, str], source: Optional[str] = Non
             return {"user_id": "123", "username": username}
     """
     def decorator(func: Callable) -> Callable:
-        # Convertir string en EventType si nécessaire
         if isinstance(event_type, str):
             try:
                 actual_event_type = EventType(event_type)
@@ -79,10 +76,8 @@ def publish_event(event_type: Union[EventType, str], source: Optional[str] = Non
         
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            # Exécuter la fonction
             result = func(*args, **kwargs)
             
-            # Créer et publier l'événement
             try:
                 event = Event(
                     type=actual_event_type,
@@ -142,19 +137,16 @@ def publish_event_async(event_type: Union[EventType, str], source: Optional[str]
             # Exécuter la fonction
             result = func(*args, **kwargs)
             
-            # Créer et publier l'événement de manière asynchrone
             try:
                 event = Event(
                     type=actual_event_type,
                     payload=result if isinstance(result, dict) else {"result": result},
                     source=source or func.__module__
                 )
-                # Utiliser asyncio.create_task pour publier de manière asynchrone
                 try:
                     loop = asyncio.get_event_loop()
                     loop.create_task(event_bus._event_queue.put(event))
                 except RuntimeError:
-                    # Si pas de loop, publier de manière synchrone
                     event_bus.publish(event)
                 
                 logger.debug(f"Événement publié automatiquement (async): {event_type} depuis {func.__name__}")

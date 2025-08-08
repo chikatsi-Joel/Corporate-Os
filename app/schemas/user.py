@@ -9,7 +9,7 @@ class UserBase(BaseModel):
     email: EmailStr = Field(..., description="Adresse email de l'utilisateur", example="gweunshy@gmail.com")
     first_name: Optional[str] = Field(None, description="Prénom de l'utilisateur", example="Gradi")
     last_name: Optional[str] = Field(None, description="Nom de famille de l'utilisateur", example="Joel")
-    role: str = Field(..., description="Rôle de l'utilisateur", example="admin", pattern="^(admin|actionnaire)$")
+    user_type: str = Field(..., description="User type de l'utilisateur", example="admin", pattern="^(admin|actionnaire)$")
 
 
 class UserCreate(UserBase):
@@ -40,7 +40,7 @@ class User(UserBase):
                 "email": "gweunshy@gmail.com",
                 "first_name": "Gradi",
                 "last_name": "Joel",
-                "role": "admin",
+                "user_type": "admin",
                 "keycloak_id": "keycloak-user-123",
                 "created_at": "2024-01-01T00:00:00Z",
                 "updated_at": "2024-01-01T00:00:00Z"
@@ -61,7 +61,7 @@ class UserWithShares(User):
                 "email": "gweunshy@gmail.com",
                 "first_name": "Gradi",
                 "last_name": "Joel",
-                "role": "actionnaire",
+                "user_type": "actionnaire",
                 "keycloak_id": "keycloak-user-123",
                 "created_at": "2024-01-01T00:00:00Z",
                 "updated_at": "2024-01-01T00:00:00Z",

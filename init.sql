@@ -14,23 +14,12 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(255) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     first_name VARCHAR(255),
+    user_type VARCHAR(50) NOT NULL CHECK (user_type IN ('admin', 'actionnaire')),
     last_name VARCHAR(255),
-    role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'actionnaire')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table des profils d'actionnaires non utilisé mais idéale
-CREATE TABLE IF NOT EXISTS shareholder_profiles (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    company_name VARCHAR(255),
-    address TEXT,
-    phone VARCHAR(50),
-    tax_id VARCHAR(100),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
 
 -- Table des émissions d'actions
 CREATE TABLE IF NOT EXISTS share_issuances (
@@ -46,20 +35,6 @@ CREATE TABLE IF NOT EXISTS share_issuances (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table des notifications
-CREATE TABLE IF NOT EXISTS notifications (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type VARCHAR(50) NOT NULL CHECK (type IN ('share_issuance', 'share_transfer', 'certificate_generated', 'system_alert', 'user_registration', 'cap_table_update')),
-    title VARCHAR(255) NOT NULL,
-    message TEXT NOT NULL,
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'failed', 'read')),
-    read_at TIMESTAMP WITH TIME ZONE,
-    sent_at TIMESTAMP WITH TIME ZONE,
-    metadata TEXT, -- JSON pour stocker des données supplémentaires
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
 
 -- Table des événements d'audit
 CREATE TABLE IF NOT EXISTS audit_events (
@@ -80,44 +55,9 @@ CREATE TABLE IF NOT EXISTS audit_events (
     status VARCHAR(20) DEFAULT 'processed' CHECK (status IN ('processed', 'failed', 'pending'))
 );
 
--- Index pour les performances
-CREATE INDEX IF NOT EXISTS idx_users_keycloak_id ON users(keycloak_id);
-CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 
-CREATE INDEX IF NOT EXISTS idx_shareholder_profiles_user_id ON shareholder_profiles(user_id);
 
-CREATE INDEX IF NOT EXISTS idx_share_issuances_shareholder_id ON share_issuances(shareholder_id);
-CREATE INDEX IF NOT EXISTS idx_share_issuances_issue_date ON share_issuances(issue_date);
-CREATE INDEX IF NOT EXISTS idx_share_issuances_status ON share_issuances(status);
-
-CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type);
-CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
-CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
-
-CREATE INDEX IF NOT EXISTS idx_audit_events_user_id ON audit_events(user_id);
-CREATE INDEX IF NOT EXISTS idx_audit_events_action ON audit_events(action);
-CREATE INDEX IF NOT EXISTS idx_audit_events_resource_type ON audit_events(resource_type);
-CREATE INDEX IF NOT EXISTS idx_audit_events_created_at ON audit_events(created_at);
-CREATE INDEX IF NOT EXISTS idx_audit_events_status ON audit_events(status);
-
--- Index composites pour les requêtes courantes
-CREATE INDEX IF NOT EXISTS idx_audit_events_user_date ON audit_events(event_type, user_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_audit_events_resource_date ON audit_events(resource_type, resource_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_audit_events_user_date_simple ON audit_events(user_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_audit_events_date_type ON audit_events(created_at, event_type);
-
--- Index pour les notifications
-CREATE INDEX IF NOT EXISTS idx_notifications_user_status ON notifications(user_id, status);
-CREATE INDEX IF NOT EXISTS idx_notifications_type_date ON notifications(type, created_at);
-
--- Index pour les émissions d'actions
-CREATE INDEX IF NOT EXISTS idx_share_issuances_shareholder_status ON share_issuances(shareholder_id, status);
-CREATE INDEX IF NOT EXISTS idx_share_issuances_date_status ON share_issuances(issue_date, status);
-
-INSERT INTO users (keycloak_id, username, email, first_name, last_name, role)
+INSERT INTO users (keycloak_id, username, email, first_name, last_name, user_type)
 VALUES
   (
     'keycloak_admin_id1',
@@ -148,9 +88,6 @@ $$ language 'plpgsql';
 
 -- Triggers pour mettre à jour automatiquement updated_at
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_shareholder_profiles_updated_at BEFORE UPDATE ON shareholder_profiles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_share_issuances_updated_at BEFORE UPDATE ON share_issuances

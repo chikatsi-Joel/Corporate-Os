@@ -80,15 +80,15 @@ async def login(form_data: LoginRequest):
                 )
             else:
                 raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Erreur lors de l'authentification"
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Bad credentials"
                 )
         
         token_info = response.json()
         
         # Publier l'événement d'audit de manière non-bloquante
         try:
-            from core.events import event_bus, Event, EventType
+            from bus_event.events import event_bus, Event, EventType
             event = Event(
                 type=EventType.AUDIT_LOG,
                 payload={

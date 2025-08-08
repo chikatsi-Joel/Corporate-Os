@@ -12,7 +12,7 @@ from app.schemas.audit import (
     AuditEvent, AuditEventCreate, AuditEventUpdate, AuditEventSummary,
     AuditEventFilter, AuditEventStatistics
 )
-from ..service.audit_service import AuditEventService
+from ...audit.service.audit_service import AuditEventService
 from app.core.check_role import require_role
 
 router = APIRouter(prefix="/audit", tags=["audit"])

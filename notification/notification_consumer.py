@@ -15,14 +15,11 @@ class NotificationSubscriber:
         # Déclarer l'exchange
         self.channel.exchange_declare(exchange='notifications', exchange_type='fanout')
         
-        # Créer une queue temporaire exclusive pour ce subscriber
         result = self.channel.queue_declare(queue='', exclusive=True)
         self.queue_name = result.method.queue
         
-        # Lier la queue à l'exchange
         self.channel.queue_bind(exchange='notifications', queue=self.queue_name)
         
-        # Handlers pour différents types de notifications
         self.handlers: Dict[str, Callable] = {}
     
     def add_handler(self, notification_type: str, handler: Callable[[Dict[str, Any]], None]):
@@ -42,11 +39,9 @@ class NotificationSubscriber:
             notification = json.loads(body.decode('utf-8'))
             notification_type = notification.get('type', 'info')
             
-            # Utiliser le handler spécifique ou le handler par défaut
             handler = self.handlers.get(notification_type, self.default_handler)
             handler(notification)
             
-            # Acquitter le message
             ch.basic_ack(delivery_tag=method.delivery_tag)
             
         except Exception as e:

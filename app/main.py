@@ -8,6 +8,7 @@ from fastapi_keycloak_middleware import KeycloakConfiguration, setup_keycloak_mi
 from app.api import auth, shareholders, issuances
 import logging
 import typing
+#from ..audit.api.audit_api import router
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -18,7 +19,7 @@ models.Base.metadata.create_all(bind=engine)
 
 # Démarrer le bus d'événements
 try:
-    from core.events import event_bus
+    from bus_event.events import event_bus
     event_bus.start()
     logger.info("Bus d'événements démarré avec succès")
 except Exception as e:
@@ -162,6 +163,10 @@ excluded_routes = [
 async def map_user(userinfo: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
    return userinfo
 
+import time
+
+#Le temps que keycloak démarre
+time.sleep(10)  
 config = KeycloakConfiguration(
     url=settings.keycloak_url,
     realm=settings.keycloak_realm,
@@ -184,7 +189,7 @@ setup_keycloak_middleware(app, config, user_mapper=map_user, exclude_patterns=ex
 app.include_router(auth.router)
 app.include_router(shareholders.router)
 app.include_router(issuances.router)
-#app.include_router(audit_router)
+#app.include_router(router)
 
 # Configuration personnalisée de l'OpenAPI schema
 app.openapi = lambda: custom_openapi_schema(app)
