@@ -166,7 +166,7 @@ async def map_user(userinfo: typing.Dict[str, typing.Any]) -> typing.Dict[str, t
 import time
 
 #Le temps que keycloak démarre
-time.sleep(10)  
+time.sleep(40)  
 config = KeycloakConfiguration(
     url=settings.keycloak_url,
     realm=settings.keycloak_realm,

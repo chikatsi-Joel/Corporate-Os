@@ -476,3 +476,5 @@ class TestShareholderService:
         assert result == [sample_shareholder]
         assert len(result) == 1
 
+
+

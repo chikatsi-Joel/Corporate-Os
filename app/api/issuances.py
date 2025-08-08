@@ -124,7 +124,7 @@ async def create_issuance(
 
     # Publier l'événement d'émission d'actions
     try:
-        from core.events import event_bus, Event, EventType
+        from bus_event.events import event_bus, Event, EventType
         event = Event(
             type=EventType.AUDIT_LOG,
             payload={

@@ -341,3 +341,5 @@ class TestSecurity:
         for info in sensitive_info:
             assert info not in error_text.lower(), f"Informations sensibles exposées dans l'erreur: {info}"
 
+
+

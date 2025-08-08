@@ -395,3 +395,5 @@ class TestIssuanceService:
         mock_db_session.query.return_value.filter.return_value.offset.assert_called_once_with(5)
         mock_db_session.query.return_value.filter.return_value.offset.return_value.limit.assert_called_once_with(3)
 
+
+

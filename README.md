@@ -1,238 +1,272 @@
-# Corporate OS - Plateforme de Gestion de Cap Table
+# 🏢 Corporate OS - Gestion de Cap Table
 
-## Objectif du Projet
+## 🎯 Ce qui a été réalisé
 
-Corporate OS est une plateforme moderne de gestion de table de capitalisation (Cap Table) conçue pour les entreprises en croissance. Elle permet de gérer les actionnaires, les émissions d'actions, et de générer automatiquement des certificats d'actions tout en assurant une traçabilité complète des opérations.
+Corporate OS est une application de gestion de table de capitalisation (Cap Table) qui permet de :
 
-##  Architecture Technique
+### 👨‍💼 **Fonctionnalités Administrateur**
+- **Gestion des actionnaires** : Création, consultation et suivi des actionnaires
+- **Émissions d'actions** : Création d'émissions avec calcul automatique des montants
+- **Génération de certificats** : Certificats PDF automatiques pour chaque émission
+- **Tableau de bord** : Vue d'ensemble de la répartition des actions
+- **Audit complet** : Traçabilité de toutes les opérations
 
-### **Pourquoi cette stack technologique ?**
+### 👤 **Fonctionnalités Actionnaire**
+- **Consultation personnelle** : Vue de ses propres actions et certificats
+- **Téléchargement** : Accès aux certificats PDF de ses émissions
+- **Historique** : Suivi de toutes ses émissions d'actions
 
-#### **Backend - FastAPI**
-- **Performance** : FastAPI est l'un des frameworks Python les plus rapides, basé sur Starlette et Pydantic
-- **Type Safety** : Validation automatique des types avec Pydantic, réduisant les bugs 
-- **Documentation Auto-générée** : OpenAPI/Swagger intégré, facilitant l'intégration et les tests
-- **Async/Await** : Support natif de l'asynchrone pour une meilleure performance sous charge
-- **Écosystème Riche** : Large communauté et nombreuses intégrations disponibles
+### 🔧 **Fonctionnalités Système**
+- **Authentification sécurisée** : Intégration avec Keycloak
+- **Système d'événements** : Bus d'événements interne pour la traçabilité
+- **Validation métier** : Contraintes sur les nombres d'actions et prix
+- **Génération PDF** : Certificats automatiques avec filigrane
 
-#### **Base de Données - PostgreSQL**
-- **ACID Compliance** : Garantit l'intégrité des données financières critiques
-- **Performance** : Excellent pour les requêtes complexes et les jointures
-- **JSON Support** : Stockage flexible des métadonnées et configurations
-- **Scalabilité** : Support des grandes volumes de données et de la réplication
-- **Open Source** : Coût réduit et contrôle total sur l'infrastructure
+## 🏗️ Pourquoi cette architecture ?
 
-#### **Authentification - Keycloak**
-- **Enterprise Ready** : Solution d'identité et d'accès (IAM) de niveau entreprise
-- **Standards Ouverts** : Support OAuth2, OpenID Connect, SAML
-- **Gestion des Rôles** : Système de rôles et permissions sophistiqué
-- **SSO** : Single Sign-On pour une expérience utilisateur fluide
-- **Sécurité** : Audit trail complet, MFA, gestion des sessions
+### 🔐 **Authentification avec Keycloak**
+Nous avons choisi Keycloak pour sa **robustesse** et sa **flexibilité** :
+- **Standards ouverts** : OAuth2, OpenID Connect, JWT
+- **Gestion des rôles** : Admin et Actionnaire avec permissions distinctes
+- **Interface d'administration** : Gestion facile des utilisateurs
+- **Sécurité** : Authentification centralisée et sécurisée
 
-#### **Containerisation - Docker & Docker Compose**
-- **Reproductibilité** : Environnements identiques en dev, staging et production
-- **Isolation** : Chaque service fonctionne dans son propre conteneur
-- **Scalabilité** : Déploiement facile sur différents environnements
-- **DevOps** : Intégration continue et déploiement continu simplifiés
-- **Portabilité** : Fonctionne sur n'importe quelle plateforme supportant Docker
+**Comment nous l'utilisons :**
+```python
+# Configuration Keycloak dans l'application
+config = KeycloakConfiguration(
+    url=settings.keycloak_url,
+    realm=settings.keycloak_realm,
+    client_id=settings.keycloak_client_id,
+    client_secret=settings.keycloak_client_secret
+)
+setup_keycloak_middleware(app, config, user_mapper=map_user)
+```
 
-#### **Bus d'Événements - Système Custom**
-- **Légèreté** : Pas de dépendance externe lourde comme RabbitMQ
-- **Performance** : Traitement asynchrone sans overhead réseau
-- **Simplicité** : Décorateurs Python pour une utilisation intuitive
-- **Flexibilité** : Adapté aux besoins spécifiques du projet
-- **Maintenance** : Code source contrôlé et facilement modifiable
+### 🚀 **Système d'Événements Interne**
+Nous avons développé un **bus d'événements léger** pour :
+- **Découpler les modules** : Chaque fonctionnalité peut écouter les événements qui l'intéressent
+- **Traçabilité complète** : Toutes les opérations sont enregistrées
+- **Extensibilité** : Facile d'ajouter de nouvelles fonctionnalités
 
-#### **Génération PDF**
-- **Performance** : Génération rapide de documents complexes
-- **Flexibilité** : Contrôle total sur la mise en page et le design
-- **Sécurité** : Possibilité d'ajouter des filigranes et signatures
-- **Standards** : Support des formats PDF/A pour l'archivage
-- **Python Native** : Intégration parfaite avec l'écosystème Python
+**Comment ça fonctionne :**
+```python
+# Publication d'événement lors d'une émission
+@publish_event_async(EventType.SHARE_ISSUED, source="issuance_service")
+def create_issuance(db: Session, issuance_data: ShareIssuanceCreate):
+    # Logique métier
+    return new_issuance
 
-#### **ORM - SQLAlchemy**
-- **Productivité** : Mapping objet-relationnel puissant
-- **Performance** : Query builder optimisé et lazy loading
-- **Flexibilité** : Support des requêtes natives et des migrations
-- **Type Safety** : Intégration avec les types Python
-- **Écosystème** : Large communauté et nombreuses extensions
+# Écoute d'événement pour l'audit
+@event_handler(EventType.AUDIT_LOG)
+def handle_audit_persistence(event: Event):
+    # Persistance en base de données
+    pass
+```
 
-#### **Validation - Pydantic**
-- **Type Safety** : Validation automatique des données
-- **Performance** : Validation rapide basée sur Rust (Pydantic v2)
-- **Documentation** : Génération automatique de schémas OpenAPI
-- **Intégration** : Parfaitement intégré avec FastAPI
-- **Extensibilité** : Validateurs personnalisés faciles à créer
+### 🎯 **Avantages de cette approche**
+- **Monolithique évolutif** : Architecture simple mais extensible
+- **Traçabilité** : Chaque action est enregistrée automatiquement
+- **Sécurité** : Authentification robuste avec Keycloak
+- **Maintenabilité** : Code découplé et modulaire
 
-### Démarrage Rapide
+## 🚀 **Démarrage Rapide**
+
+### 📋 **Prérequis**
+- Docker et Docker Compose installés
+- Git
+- 4GB RAM minimum
+- 2GB espace disque libre
+- Ports 8000, 8080, 5432 disponibles
+
+### ⚡ **Démarrage en 3 étapes**
+
+#### **1. Cloner et configurer**
 ```bash
 # Cloner le projet
-git clone https://github.com/votre-org/corporate-os.git
-cd corporate-os
+git clone https://github.com/chikatsi-Joel/Corporate-Os.git
+cd Corporate-Os
 
-# Copier le fichier d'environnement
-cp .env.example .env
 
-# Démarrer les services
-docker compose up -d
+```
 
-# Vérifier le statut
+#### **2. Démarrer les services**
+```bash
+# Démarrer tous les services
+docker compose up -d --build
+
+# Vérifier que tout fonctionne
 docker compose ps
 ```
 
-### Accès aux Services
+#### **3. Accéder à l'application**
 - **Application** : http://localhost:8000
 - **Documentation API** : http://localhost:8000/docs
-- **Keycloak Admin** : http://localhost:8080 (admin/admin)
-- **Base de données** : localhost:5432
+- **Keycloak** : http://localhost:8080 (admin/admin)
 
-## 📊 Fonctionnalités Principales
+### 👥 **Utilisateurs par défaut**
+- **Admin** : `admin` / `admin123`
+- **Actionnaire** : `actionnaire` / `actionnaire123`
 
-### **Gestion des Actionnaires**
-- Création et gestion des profils d'actionnaires
-- Validation automatique des données
-- Historique complet des modifications
-- Export des données en différents formats
+## 🔍 **Vérification du démarrage**
 
-### **Émissions d'Actions**
-- Calcul automatique des montants
-- Génération de certificats PDF
-- Validation des règles métier
-- Traçabilité complète des opérations
+### **1. Vérifier les services**
+```bash
+# Statut des conteneurs
+docker compose ps
 
-### **Système d'Audit**
-- Journalisation de toutes les actions
-- Persistance en base de données
-- Recherche et filtrage avancés
-- Export des rapports d'audit
+# Logs en temps réel
+docker compose logs -f
+```
 
-### **Gestion des Certificats**
-- Génération automatique de certificats PDF
-- Stockage sécurisé des documents
-- Téléchargement en base64
-- Versioning des certificats
+### **2. Vérifier l'API**
+```bash
+# Test de santé
+curl http://localhost:8000/health
 
-## 🔐 Sécurité et Conformité
+# Test de l'endpoint principal
+curl http://localhost:8000/
+```
 
-### **Authentification et Autorisation**
-- **Keycloak** : Gestion centralisée des identités
-- **JWT** : Tokens sécurisés et éphémères
-- **RBAC** : Contrôle d'accès basé sur les rôles
-- **Audit Trail** : Traçabilité complète des accès
+### **3. Vérifier Keycloak**
+```bash
+# Test de connexion Keycloak
+curl http://localhost:8080/health
+```
 
-### **Protection des Données**
-- **Chiffrement** : Données sensibles chiffrées
-- **Validation** : Validation stricte des entrées
-- **Sanitisation** : Protection contre les injections
-- **Backup** : Sauvegarde automatique des données
+## 🛠️ **Commandes utiles**
 
-### **Conformité**
-- **GDPR** : Respect du règlement européen
-- **SOX** : Conformité pour les entreprises publiques
-- **Audit** : Journalisation pour les audits externes
-- **Archivage** : Conservation des données selon la réglementation
+### **Gestion des services**
+```bash
+# Redémarrer un service
+docker compose restart app
 
-## 🧪 Tests et Qualité
+# Voir les logs d'un service
+docker compose logs -f postgres
 
-### **Tests Unitaires**
+# Arrêter tous les services
+docker compose down
+
+# Nettoyer complètement (volumes inclus)
+docker compose down -v
+```
+
+### **Base de données**
+```bash
+# Accéder à PostgreSQL
+docker compose exec postgres psql -U corporate_user -d corporate_os
+
+# Appliquer les migrations
+docker compose exec app alembic upgrade head
+
+# Voir les tables
+docker compose exec postgres psql -U corporate_user -d corporate_os -c "\dt"
+```
+
+### **Tests**
 ```bash
 # Lancer les tests
 docker compose exec app pytest
 
 # Tests avec couverture
 docker compose exec app pytest --cov=app
-
-# Tests spécifiques
-docker compose exec app pytest tests/test_audit.py -v
 ```
 
-### **Tests d'Intégration**
-- Tests des endpoints API
-- Tests de la base de données
-- Tests d'authentification
-- Tests de génération de certificats
+## 🔧 **Dépannage**
 
-### **Qualité du Code**
-- **Black** : Formatage automatique du code
-- **Flake8** : Linting et détection d'erreurs
-- **MyPy** : Vérification des types
-- **Pre-commit** : Hooks de validation
-
-## 📈 Monitoring et Observabilité
-
-### **Logging**
-- **Structured Logging** : Logs JSON pour faciliter l'analyse
-- **Niveaux de Log** : DEBUG, INFO, WARNING, ERROR
-- **Correlation IDs** : Traçabilité des requêtes
-- **Centralisation** : Agrégation des logs
-
-### **Métriques**
-- **Performance** : Temps de réponse des endpoints
-- **Erreurs** : Taux d'erreur et types d'erreurs
-- **Utilisation** : Nombre de requêtes et utilisateurs
-- **Ressources** : CPU, mémoire, disque
-
-### **Alerting**
-- **Seuils** : Alertes automatiques sur les métriques
-- **Escalade** : Notifications aux équipes
-- **Dashboard** : Visualisation en temps réel
-
-## 🔄 CI/CD et Déploiement
-
-### **Pipeline d'Intégration**
-```yaml
-# .github/workflows/ci.yml
-name: CI/CD Pipeline
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Run tests
-        run: docker compose -f docker-compose.test.yml up --abort-on-container-exit
-```
-
-### **Déploiement**
-- **Staging** : Environnement de pré-production
-- **Production** : Déploiement automatisé
-- **Rollback** : Retour en arrière rapide
-- **Blue-Green** : Déploiement sans interruption
-
-## 🛠️ Développement
-
-### **Structure du Projet**
-```
-corporate-os/
-├── app/                    # Application FastAPI
-│   ├── api/               # Endpoints API
-│   ├── core/              # Configuration et utilitaires
-│   ├── database/          # Modèles et migrations
-│   ├── services/          # Logique métier
-│   └── schemas/           # Modèles Pydantic
-├── core/                  # Modules partagés
-│   └── events/            # Système d'événements
-├── alembic/               # Migrations de base de données
-├── docker/                # Configuration Docker
-└── tests/                 # Tests unitaires et d'intégration
-```
-
-### **Commandes Utiles**
+### **Problème de ports**
 ```bash
-# Démarrer en mode développement
-docker compose -f docker-compose.dev.yml up
+# Vérifier les ports utilisés
+netstat -tulpn | grep -E ':(8000|8080|5432)'
 
-# Créer une migration
-docker compose exec app alembic revision --autogenerate -m "Description"
-
-# Appliquer les migrations
-docker compose exec app alembic upgrade head
-
-# Redémarrer un service
-docker compose restart app
-
-# Voir les logs
-docker compose logs -f app
+# Arrêter les services qui utilisent ces ports
+sudo lsof -ti:8000 | xargs kill -9
 ```
 
+### **Problème de démarrage**
+```bash
+# Nettoyer et redémarrer
+docker compose down -v
+docker compose up -d
+
+# Vérifier les logs
+docker compose logs -f
+```
+
+### **Problème de permissions**
+```bash
+# Corriger les permissions
+sudo chown -R $USER:$USER .
+chmod +x scripts/*.sh
+```
+
+## 📊 **Structure du projet**
+
+```
+Corporate-Os/
+├── app/                          # Application principale
+│   ├── api/                     # Endpoints API
+│   ├── core/                    # Configuration et utilitaires
+│   ├── database/                # Modèles et migrations
+│   ├── services/                # Logique métier
+│   └── schemas/                 # Validation des données
+├── bus_event/                   # Système d'événements
+│   └── events/                  # Bus d'événements et handlers
+├── keycloak/                    # Configuration Keycloak
+├── certificates/                # Certificats générés
+├── uploads/                     # Fichiers uploadés
+├── docker-compose.yml          # Orchestration des services
+├── Dockerfile                  # Image de l'application
+└── README.md                   # Ce fichier
+```
+
+## 🎯 **Points clés du code**
+
+### **1. Modèles de données**
+```python
+# app/database/models.py
+class ShareIssuance(Base):
+    __table_args__ = (
+        CheckConstraint(number_of_shares > 0, name='positive_shares'),
+        CheckConstraint(price_per_share >= 0, name='non_negative_price'),
+    )
+```
+
+### **2. Système d'événements**
+```python
+# bus_event/events/event_bus.py
+class EventBus:
+    def publish(self, event: Event) -> bool:
+        self._handle_sync(event)
+        asyncio.create_task(self._event_queue.put(event))
+```
+
+### **3. Authentification**
+```python
+# app/core/check_role.py
+def require_role(role: str):
+    def role_checker(request: Request):
+        user_info = request.state.user
+        if role not in user_info['realm_access']['roles']:
+            raise HTTPException(status_code=403, detail="Accès refusé")
+    return role_checker
+```
+
+## 🚀 **Évolution future**
+
+- **Interface web** : Frontend React/Vue.js
+- **Notifications** : Emails automatiques
+- **Reporting** : Rapports et analytics
+- **API publique** : Documentation complète
+- **Tests automatisés** : Couverture complète
+
+---
+
+## 📞 **Support**
+
+Pour toute question ou problème :
+1. Vérifiez la section **Dépannage** ci-dessus
+2. Consultez les logs : `docker compose logs -f`
+3. Testez l'API : http://localhost:8000/docs
+
+**Corporate OS** - Gestion simplifiée de votre table de capitalisation 🏢

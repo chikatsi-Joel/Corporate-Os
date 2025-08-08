@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from app.schemas.issuance import ShareIssuanceCreate, ShareIssuanceUpdate, ShareIssuanceResponse, ShareIssuanceWithCertificate
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
-from app.schemas.auth import LoginRequest, TokenResponse
+from app.schemas.user import LoginRequest, TokenResponse
 
 
 @pytest.mark.unit
@@ -519,4 +519,6 @@ class TestSchemas:
         # Assert
         # Vérifier que l'objet imbriqué est correctement validé
         pass
+
+
 

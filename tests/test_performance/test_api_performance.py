@@ -249,3 +249,5 @@ class TestAPIPerformance:
         assert result.stats.mean < 2.0, "Génération de certificat trop lente"
         assert result.stats.max < 5.0, "Génération de certificat trop lente (max)"
 
+
+
