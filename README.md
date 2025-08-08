@@ -80,6 +80,7 @@ docker compose up -d
 docker compose ps
 ```
 
+
 ### Accès aux Services
 - **Application** : http://localhost:8000
 - **Documentation API** : http://localhost:8000/docs
