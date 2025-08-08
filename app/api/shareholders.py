@@ -7,7 +7,7 @@ from app.database.database import get_db
 from app.database.models import User
 from app.schemas.user import UserCreate, UserUpdate, User as UserSchema, UserWithShares
 from app.services.user_service import UserService
-from app.core.check_role import require_role, require_any_role
+from app.core.check_role import get_current_user, require_role, require_any_role
 from app.services.keycloak_service import KeycloakService
 from app.core.config import settings
 
@@ -21,7 +21,6 @@ keycloak_service = KeycloakService(
     admin_username=settings.keycloak_admin_username,
     admin_password=settings.keycloak_admin_password
 )
-
 
 @router.get("/", response_model=List[UserWithShares], 
             dependencies=[require_role('admin')], summary="Liste des actionnaires")
@@ -132,6 +131,8 @@ async def create_shareholder(
         
         shareholder.keycloak_id = keycloak_response.get('id')
         new_user = UserService.create_user(db, shareholder)
+
+
         
         return new_user
         
@@ -149,6 +150,7 @@ async def create_shareholder(
             dependencies=[require_any_role(['admin', 'actionnaire'])], summary="Détails d'un actionnaire")
 async def get_shareholder(
     shareholder_id: UUID,
+    user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -185,12 +187,21 @@ async def get_shareholder(
     ```
     """
     
-    print("shareholder id : ", shareholder_id)
+    
     shareholder = UserService.get_user_by_id(db, shareholder_id)
+    print(f"{user['realm_access']['roles']} and {('admin' not in user['realm_access']['roles'])}")
+    
+    
     if not shareholder:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Actionnaire non trouvé"
+        )
+    
+    if (shareholder.email != user['email'] or ('admin' not in user['realm_access']['roles'])):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vous n'avez pas le droit."
         )
     
     print("sharefolder : ", shareholder)

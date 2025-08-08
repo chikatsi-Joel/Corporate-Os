@@ -64,14 +64,14 @@ CREATE TABLE IF NOT EXISTS notifications (
 -- Table des événements d'audit
 CREATE TABLE IF NOT EXISTS audit_events (
     id SERIAL PRIMARY KEY,
-    event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('audit', 'system', 'user', 'resource')),
+    event_type VARCHAR(50) NOT NULL ,
     event_id VARCHAR(100) UNIQUE NOT NULL,
     user_id VARCHAR(255),
     user_email VARCHAR(255),
     user_role VARCHAR(50),
     resource_type VARCHAR(50),
     resource_id VARCHAR(100),
-    action VARCHAR(100) NOT NULL CHECK (action IN ('create', 'update', 'delete', 'view', 'login', 'logout', 'export')),
+    action VARCHAR(100) NOT NULL,
     description TEXT,
     event_data TEXT, -- JSON pour les données de l'événement
     previous_data TEXT, -- JSON pour l'état précédent

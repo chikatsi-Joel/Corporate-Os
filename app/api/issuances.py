@@ -1,3 +1,4 @@
+from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -11,12 +12,14 @@ from app.services.certificate_service import CertificateService
 from typing import List
 from uuid import UUID
 import os
+from datetime import datetime
 
 router = APIRouter(prefix="/api/issuances", tags=["issuances"])
 
-
-@router.get("/", response_model=List[ShareIssuanceWithShareholder], summary="Liste des émissions d'actions")
+@router.get("/", response_model=List[ShareIssuanceWithShareholder],
+            dependencies=[require_any_role(['admin', 'actionnaire'])], summary="Liste des émissions d'actions")
 async def get_issuances(
+    user = Depends(get_current_user), 
     skip: int = Query(0, ge=0, description="Nombre d'éléments à ignorer", example=0),
     limit: int = Query(100, ge=1, le=1000, description="Nombre maximum d'éléments à retourner", example=100),
     db: Session = Depends(get_db)
@@ -39,10 +42,45 @@ async def get_issuances(
     - `401 Unauthorized` : Token invalide ou expiré
  
     """
-    pass
+    print("user :   @@@@@   ", user)
+    if 'admin' in user['realm_access']['roles'] :
+        usersId = UserService.get_user_by_email(db, user['email']).id
+        issuances = IssuanceService.get_issuances_by_id(db, usersId, skip=skip, limit=limit)
+    else:
+        issuances = IssuanceService.get_issuances(db, skip=skip, limit=limit)
+
+    res = [
+        {
+                "id": val.id,
+                "shareholder_id": val.shareholder_id,
+                "shares_count": val.number_of_shares,
+                "share_price": float(val.price_per_share),
+                "total_amount": float(val.total_amount),
+                "issue_date": val.issue_date,
+                "status": val.status,
+                "certificate_path": val.certificate_path,
+                "created_at": val.created_at,
+                "updated_at": val.updated_at,
+                "shareholder": {
+                    "id": val.shareholder.id,
+                    "username": val.shareholder.username,
+                    "email": val.shareholder.email,
+                    "first_name": val.shareholder.first_name,
+                    "last_name": val.shareholder.last_name,
+                    "role": val.shareholder.role,
+                    "created_at": val.shareholder.created_at,
+                    "updated_at": val.shareholder.updated_at
+                } if val.shareholder else None
+        } for val in issuances
+    ]
+    print("resultat : ", res)
+
+    return res
 
 
-@router.post("/", response_model=ShareIssuanceSchema, summary="Créer une émission d'actions",
+
+
+@router.post("/", response_model=ShareIssuanceWithCertificate, summary="Créer une émission d'actions",
              dependencies=[require_role('admin')], status_code=status.HTTP_201_CREATED)
 async def create_issuance(
     issuance: ShareIssuanceCreate,
@@ -72,14 +110,68 @@ async def create_issuance(
     shareholder = UserService.get_user_by_id(db, issuance.shareholder_id)
     if not shareholder:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Actionnaire non trouvé"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Actionnaire non existant"
         )
     
     # Créer l'émission
     new_issuance = IssuanceService.create_issuance(db, issuance)
+
+    # Publier l'événement d'émission d'actions
+    try:
+        from core.events import event_bus, Event, EventType
+        event = Event(
+            type=EventType.AUDIT_LOG,
+            payload={
+                "action": "create",
+                "user_id": "admin",  # À récupérer depuis le contexte utilisateur
+                "user_email": "admin@corporate-os.com",  # À récupérer depuis le contexte utilisateur
+                "user_role": "admin",  # À récupérer depuis le contexte utilisateur
+                "resource_type": "share_issuance",
+                "resource_id": str(new_issuance['id']),
+                "description": f"Création d'une émission d'actions pour l'actionnaire {new_issuance['shareholder_id']}",
+                "issuance_id": str(new_issuance['id']),
+                "shareholder_id": str(new_issuance['shareholder_id']),
+                "shares_count": new_issuance['shares_count'],
+                "share_price": new_issuance['share_price'],
+                "total_amount": new_issuance['total_amount'],
+                "certificate_path": new_issuance.get('certificate_path'),
+                "timestamp": datetime.now().isoformat()
+            },
+            metadata={
+                "source": "issuance_service",
+                "operation": "create_issuance"
+            }
+        )
+        event_bus.publish(event)
+    except Exception as e:
+        print(f"Erreur lors de la publication d'événement: {e}")
+
+    # Ajouter le certificat en base64 si disponible
+    certificate_base64 = None
+    if new_issuance.get('certificate_path') and os.path.exists(new_issuance['certificate_path']):
+        try:
+            import base64
+            with open(new_issuance['certificate_path'], 'rb') as f:
+                certificate_base64 = base64.b64encode(f.read()).decode('utf-8')
+        except Exception as e:
+            print(f"Erreur lors de la lecture du certificat: {e}")
     
-    return new_issuance
+    # Créer la réponse avec le certificat
+    response_data = {
+        "id": new_issuance['id'],
+        "shareholder_id": new_issuance['shareholder_id'],
+        "shares_count": new_issuance['shares_count'],
+        "share_price": new_issuance['share_price'],
+        "total_amount": new_issuance['total_amount'],
+        "status": new_issuance['status'],
+        "certificate_path": new_issuance.get('certificate_path'),
+        "certificate_base64": certificate_base64,
+        "created_at": new_issuance['created_at'],
+        "updated_at": new_issuance['updated_at']
+    }
+    
+    return response_data
 
 
 @router.get("/{issuance_id}",
@@ -148,14 +240,14 @@ async def download_certificate(
         'admin' in user['realm_access']['roles'])
     if not issuance:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Émission non trouvée"
         )
         
     # Vérifier que le certificat existe
     if not issuance.certificate_path or not os.path.exists(issuance.certificate_path):
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Certificat non trouvé"
         )
     

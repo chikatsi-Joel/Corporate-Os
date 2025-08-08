@@ -4,7 +4,6 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from typing import Optional
 
-from core.events.audit_publisher import AuditPublisher
 import requests
 from app.database.models import User
 from app.services.user_service import UserService
@@ -58,13 +57,6 @@ async def login(form_data: LoginRequest):
     try:
         token_url = f"{settings.keycloak_url}/realms/{settings.keycloak_realm}/protocol/openid-connect/token"
         
-        # Créer l'instance AuditPublisher avec gestion d'erreur
-        try:
-            audit = AuditPublisher()
-        except Exception as e:
-            print(f"Impossible de créer AuditPublisher: {e}")
-            audit = None
-        
         token_data = {
             'client_id': settings.keycloak_client_id,
             'client_secret': settings.keycloak_client_secret,
@@ -94,21 +86,30 @@ async def login(form_data: LoginRequest):
         
         token_info = response.json()
         
-        print("publication pour audit ")
-        
-        # Publier l'audit seulement si AuditPublisher est disponible
-        if audit:
-            try:
-                audit.publish_for_audit(
-                    message=f"Utilisateur {form_data.username} connecté avec succès",
-                    notification_type="connexion",
-                    metadata={
-                        "username": form_data.username,
-                        "timestamp": datetime.now().isoformat()
-                    }
-                )
-            except Exception as e:
-                print(f"Erreur lors de la publication d'audit: {e}")
+        # Publier l'événement d'audit de manière non-bloquante
+        try:
+            from core.events import event_bus, Event, EventType
+            event = Event(
+                type=EventType.AUDIT_LOG,
+                payload={
+                    "action": "login",
+                    "user_id": form_data.username,
+                    "user_email": form_data.username,  # En l'absence d'email dans la requête
+                    "resource_type": "user",
+                    "resource_id": form_data.username,
+                    "description": f"Connexion réussie de l'utilisateur {form_data.username}",
+                    "success": True,
+                    "timestamp": datetime.now().isoformat()
+                },
+                metadata={
+                    "source": "auth_service",
+                    "ip_address": "unknown",  # À récupérer depuis la requête si nécessaire
+                    "user_agent": "unknown"   # À récupérer depuis la requête si nécessaire
+                }
+            )
+            event_bus.publish(event)
+        except Exception as e:
+            print(f"Erreur lors de la publication d'événement: {e}")
         
         # Retourner la réponse formatée
         return TokenResponse(

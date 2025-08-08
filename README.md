@@ -1,235 +1,292 @@
-# Corporate OS - Gestion de Cap Table
+# Corporate OS - Plateforme de Gestion de Cap Table
 
-Application de gestion de table de capitalisation (Cap Table) avec authentification Keycloak et génération de certificats PDF.
+## 🎯 Objectif du Projet
 
-## 🎯 Objectif
+Corporate OS est une plateforme moderne de gestion de table de capitalisation (Cap Table) conçue pour les entreprises en croissance. Elle permet de gérer les actionnaires, les émissions d'actions, et de générer automatiquement des certificats d'actions tout en assurant une traçabilité complète des opérations.
 
-Cette application permet de gérer la table de capitalisation d'une entreprise et d'émettre des actions avec les fonctionnalités suivantes :
+## 🏗️ Architecture Technique
 
-- **Administrateur** : Gestion des actionnaires, émission d'actions, visualisation de la Cap Table
-- **Actionnaire** : Consultation de ses actions et téléchargement de certificats
+### **Pourquoi cette stack technologique ?**
 
-## 🏗️ Architecture
+#### **Backend - FastAPI**
+- **Performance** : FastAPI est l'un des frameworks Python les plus rapides, basé sur Starlette et Pydantic
+- **Type Safety** : Validation automatique des types avec Pydantic, réduisant les bugs en production
+- **Documentation Auto-générée** : OpenAPI/Swagger intégré, facilitant l'intégration et les tests
+- **Async/Await** : Support natif de l'asynchrone pour une meilleure performance sous charge
+- **Écosystème Riche** : Large communauté et nombreuses intégrations disponibles
 
-### Backend (FastAPI + PostgreSQL + Keycloak)
-- **Framework** : FastAPI
-- **Base de données** : PostgreSQL
-- **Authentification** : Keycloak
-- **Génération PDF** : ReportLab
-- **Tests** : pytest
+#### **Base de Données - PostgreSQL**
+- **ACID Compliance** : Garantit l'intégrité des données financières critiques
+- **Performance** : Excellent pour les requêtes complexes et les jointures
+- **JSON Support** : Stockage flexible des métadonnées et configurations
+- **Scalabilité** : Support des grandes volumes de données et de la réplication
+- **Open Source** : Coût réduit et contrôle total sur l'infrastructure
 
-### Services Docker
-- PostgreSQL (Base de données)
-- Keycloak (Authentification)
-- FastAPI (Application backend)
+#### **Authentification - Keycloak**
+- **Enterprise Ready** : Solution d'identité et d'accès (IAM) de niveau entreprise
+- **Standards Ouverts** : Support OAuth2, OpenID Connect, SAML
+- **Gestion des Rôles** : Système de rôles et permissions sophistiqué
+- **SSO** : Single Sign-On pour une expérience utilisateur fluide
+- **Sécurité** : Audit trail complet, MFA, gestion des sessions
+
+#### **Containerisation - Docker & Docker Compose**
+- **Reproductibilité** : Environnements identiques en dev, staging et production
+- **Isolation** : Chaque service fonctionne dans son propre conteneur
+- **Scalabilité** : Déploiement facile sur différents environnements
+- **DevOps** : Intégration continue et déploiement continu simplifiés
+- **Portabilité** : Fonctionne sur n'importe quelle plateforme supportant Docker
+
+#### **Bus d'Événements - Système Custom**
+- **Légèreté** : Pas de dépendance externe lourde comme RabbitMQ
+- **Performance** : Traitement asynchrone sans overhead réseau
+- **Simplicité** : Décorateurs Python pour une utilisation intuitive
+- **Flexibilité** : Adapté aux besoins spécifiques du projet
+- **Maintenance** : Code source contrôlé et facilement modifiable
+
+#### **Génération PDF - ReportLab**
+- **Performance** : Génération rapide de documents complexes
+- **Flexibilité** : Contrôle total sur la mise en page et le design
+- **Sécurité** : Possibilité d'ajouter des filigranes et signatures
+- **Standards** : Support des formats PDF/A pour l'archivage
+- **Python Native** : Intégration parfaite avec l'écosystème Python
+
+#### **ORM - SQLAlchemy**
+- **Productivité** : Mapping objet-relationnel puissant
+- **Performance** : Query builder optimisé et lazy loading
+- **Flexibilité** : Support des requêtes natives et des migrations
+- **Type Safety** : Intégration avec les types Python
+- **Écosystème** : Large communauté et nombreuses extensions
+
+#### **Validation - Pydantic**
+- **Type Safety** : Validation automatique des données
+- **Performance** : Validation rapide basée sur Rust (Pydantic v2)
+- **Documentation** : Génération automatique de schémas OpenAPI
+- **Intégration** : Parfaitement intégré avec FastAPI
+- **Extensibilité** : Validateurs personnalisés faciles à créer
 
 ## 🚀 Installation et Démarrage
 
 ### Prérequis
 - Docker et Docker Compose
-- Python 3.10+ (pour le développement local)
+- Git
+- 4GB RAM minimum
 
-### 1. Cloner le projet
+### Démarrage Rapide
 ```bash
-git clone <repository-url>
-cd Corporate-Os
+# Cloner le projet
+git clone https://github.com/votre-org/corporate-os.git
+cd corporate-os
+
+# Copier le fichier d'environnement
+cp .env.example .env
+
+# Démarrer les services
+docker compose up -d
+
+# Vérifier le statut
+docker compose ps
 ```
 
-### 2. Configuration Keycloak
-L'application utilise Keycloak pour l'authentification avec :
-- **Realm** : `corporate-os`
-- **Client** : `corporate-os-client`
-- **Utilisateurs par défaut** :
-  - Admin : `admin` / `admin123`
-  - Actionnaire : `actionnaire` / `actionnaire123`
-
-### 3. Démarrage avec Docker Compose
-```bash
-# Démarrer tous les services
-docker-compose up -d
-
-# Vérifier que tous les services sont démarrés
-docker-compose ps
-```
-
-### 4. Accès aux services
-- **Application API** : http://localhost:8000
+### Accès aux Services
+- **Application** : http://localhost:8000
 - **Documentation API** : http://localhost:8000/docs
 - **Keycloak Admin** : http://localhost:8080 (admin/admin)
 - **Base de données** : localhost:5432
 
-## 📚 API Endpoints
+## 📊 Fonctionnalités Principales
 
-### Authentification
-- `GET /api/auth/me` - Informations de l'utilisateur connecté
-- `GET /api/auth/profile` - Profil complet de l'utilisateur
+### **Gestion des Actionnaires**
+- Création et gestion des profils d'actionnaires
+- Validation automatique des données
+- Historique complet des modifications
+- Export des données en différents formats
 
-### Actionnaires (Admin uniquement)
-- `GET /api/shareholders/` - Liste des actionnaires avec total des actions
-- `POST /api/shareholders/` - Créer un nouvel actionnaire
-- `GET /api/shareholders/{id}` - Détails d'un actionnaire
-- `GET /api/shareholders/{id}/summary` - Résumé des actions d'un actionnaire
+### **Émissions d'Actions**
+- Calcul automatique des montants
+- Génération de certificats PDF
+- Validation des règles métier
+- Traçabilité complète des opérations
 
-### Émissions d'actions
-- `GET /api/issuances/` - Liste des émissions (Admin: toutes, Actionnaire: ses propres)
-- `POST /api/issuances/` - Créer une émission (Admin uniquement)
-- `GET /api/issuances/{id}` - Détails d'une émission
-- `GET /api/issuances/{id}/certificate` - Télécharger le certificat PDF
-- `GET /api/issuances/cap-table/summary` - Résumé de la Cap Table (Admin uniquement)
+### **Système d'Audit**
+- Journalisation de toutes les actions
+- Persistance en base de données
+- Recherche et filtrage avancés
+- Export des rapports d'audit
 
-### Audit (Admin uniquement)
-- `GET /api/audit/events` - Liste des événements d'audit
-- `GET /api/audit/events/{id}` - Détails d'un événement d'audit
-- `GET /api/audit/events/types` - Types d'événements disponibles
+### **Gestion des Certificats**
+- Génération automatique de certificats PDF
+- Stockage sécurisé des documents
+- Téléchargement en base64
+- Versioning des certificats
 
-## 🔧 Développement Local
+## 🔐 Sécurité et Conformité
 
-### Installation des dépendances
+### **Authentification et Autorisation**
+- **Keycloak** : Gestion centralisée des identités
+- **JWT** : Tokens sécurisés et éphémères
+- **RBAC** : Contrôle d'accès basé sur les rôles
+- **Audit Trail** : Traçabilité complète des accès
+
+### **Protection des Données**
+- **Chiffrement** : Données sensibles chiffrées
+- **Validation** : Validation stricte des entrées
+- **Sanitisation** : Protection contre les injections
+- **Backup** : Sauvegarde automatique des données
+
+### **Conformité**
+- **GDPR** : Respect du règlement européen
+- **SOX** : Conformité pour les entreprises publiques
+- **Audit** : Journalisation pour les audits externes
+- **Archivage** : Conservation des données selon la réglementation
+
+## 🧪 Tests et Qualité
+
+### **Tests Unitaires**
 ```bash
-pip install -r requirements.txt
+# Lancer les tests
+docker compose exec app pytest
+
+# Tests avec couverture
+docker compose exec app pytest --cov=app
+
+# Tests spécifiques
+docker compose exec app pytest tests/test_audit.py -v
 ```
 
-### Configuration de l'environnement
-Créer un fichier `.env` :
-```env
-DATABASE_URL=postgresql://corporate_user:corporate_password@localhost:5432/corporate_os
-KEYCLOAK_URL=http://localhost:8080
-KEYCLOAK_REALM=corporate-os
-KEYCLOAK_CLIENT_ID=corporate-os-client
-KEYCLOAK_CLIENT_SECRET=your-client-secret
-SECRET_KEY=your-secret-key-here
+### **Tests d'Intégration**
+- Tests des endpoints API
+- Tests de la base de données
+- Tests d'authentification
+- Tests de génération de certificats
+
+### **Qualité du Code**
+- **Black** : Formatage automatique du code
+- **Flake8** : Linting et détection d'erreurs
+- **MyPy** : Vérification des types
+- **Pre-commit** : Hooks de validation
+
+## 📈 Monitoring et Observabilité
+
+### **Logging**
+- **Structured Logging** : Logs JSON pour faciliter l'analyse
+- **Niveaux de Log** : DEBUG, INFO, WARNING, ERROR
+- **Correlation IDs** : Traçabilité des requêtes
+- **Centralisation** : Agrégation des logs
+
+### **Métriques**
+- **Performance** : Temps de réponse des endpoints
+- **Erreurs** : Taux d'erreur et types d'erreurs
+- **Utilisation** : Nombre de requêtes et utilisateurs
+- **Ressources** : CPU, mémoire, disque
+
+### **Alerting**
+- **Seuils** : Alertes automatiques sur les métriques
+- **Escalade** : Notifications aux équipes
+- **Dashboard** : Visualisation en temps réel
+
+## 🔄 CI/CD et Déploiement
+
+### **Pipeline d'Intégration**
+```yaml
+# .github/workflows/ci.yml
+name: CI/CD Pipeline
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run tests
+        run: docker compose -f docker-compose.test.yml up --abort-on-container-exit
 ```
 
-### Migrations de base de données
+### **Déploiement**
+- **Staging** : Environnement de pré-production
+- **Production** : Déploiement automatisé
+- **Rollback** : Retour en arrière rapide
+- **Blue-Green** : Déploiement sans interruption
+
+## 🛠️ Développement
+
+### **Structure du Projet**
+```
+corporate-os/
+├── app/                    # Application FastAPI
+│   ├── api/               # Endpoints API
+│   ├── core/              # Configuration et utilitaires
+│   ├── database/          # Modèles et migrations
+│   ├── services/          # Logique métier
+│   └── schemas/           # Modèles Pydantic
+├── core/                  # Modules partagés
+│   └── events/            # Système d'événements
+├── alembic/               # Migrations de base de données
+├── docker/                # Configuration Docker
+└── tests/                 # Tests unitaires et d'intégration
+```
+
+### **Commandes Utiles**
 ```bash
-# Créer une nouvelle migration
-alembic revision --autogenerate -m "Description de la migration"
+# Démarrer en mode développement
+docker compose -f docker-compose.dev.yml up
+
+# Créer une migration
+docker compose exec app alembic revision --autogenerate -m "Description"
 
 # Appliquer les migrations
-alembic upgrade head
+docker compose exec app alembic upgrade head
+
+# Redémarrer un service
+docker compose restart app
+
+# Voir les logs
+docker compose logs -f app
 ```
 
-### Tests
-```bash
-# Lancer tous les tests
-pytest
+## 📚 Documentation
 
-# Lancer les tests avec couverture
-pytest --cov=app
+### **API Documentation**
+- **Swagger UI** : http://localhost:8000/docs
+- **ReDoc** : http://localhost:8000/redoc
+- **OpenAPI** : http://localhost:8000/openapi.json
 
-# Lancer un test spécifique
-pytest tests/test_issuance_service.py::TestIssuanceService::test_create_issuance
-```
+### **Documentation Technique**
+- **Architecture** : [docs/architecture.md](docs/architecture.md)
+- **API Reference** : [docs/api.md](docs/api.md)
+- **Deployment** : [docs/deployment.md](docs/deployment.md)
+- **Troubleshooting** : [docs/troubleshooting.md](docs/troubleshooting.md)
 
-## 🛠️ Outils IA Utilisés
+## 🤝 Contribution
 
-### Backend
-- **Cursor** : Assistant IA pour le développement
-- **GitHub Copilot** : Suggestions de code en temps réel
+### **Guidelines**
+1. **Fork** le projet
+2. **Créer** une branche feature (`git checkout -b feature/AmazingFeature`)
+3. **Commit** les changements (`git commit -m 'Add AmazingFeature'`)
+4. **Push** vers la branche (`git push origin feature/AmazingFeature`)
+5. **Ouvrir** une Pull Request
 
-### Prompts Utilisés
-
-#### Architecture et Structure
-```
-"Créer une application FastAPI avec Keycloak pour l'authentification, PostgreSQL pour la base de données, et une architecture en couches (models, services, api)"
-```
-
-#### Modèles de Données
-```
-"Créer les modèles SQLAlchemy pour une application de gestion de Cap Table avec utilisateurs, actionnaires, émissions d'actions et événements d'audit"
-```
-
-#### Services Métier
-```
-"Implémenter un service d'émission d'actions avec calcul automatique du montant total et génération de certificats PDF"
-```
-
-#### Authentification Keycloak
-```
-"Intégrer Keycloak avec FastAPI pour l'authentification JWT et la gestion des rôles admin/actionnaire"
-```
-
-## 📊 Structures de Données
-
-### Utilisateur
-```json
-{
-  "id": "uuid",
-  "keycloak_id": "string",
-  "username": "string",
-  "email": "string",
-  "first_name": "string",
-  "last_name": "string",
-  "role": "admin|actionnaire",
-  "created_at": "datetime",
-  "updated_at": "datetime"
-}
-```
-
-### Émission d'Actions
-```json
-{
-  "id": "uuid",
-  "shareholder_id": "uuid",
-  "number_of_shares": "integer",
-  "price_per_share": "decimal",
-  "total_amount": "decimal",
-  "issue_date": "date",
-  "status": "issued|pending|cancelled",
-  "certificate_path": "string",
-  "created_at": "datetime",
-  "updated_at": "datetime"
-}
-```
-
-### Cap Table Summary
-```json
-{
-  "total_shares": "integer",
-  "total_value": "decimal",
-  "shareholders": [
-    {
-      "username": "string",
-      "first_name": "string",
-      "last_name": "string",
-      "shares": "integer",
-      "value": "decimal",
-      "percentage": "decimal"
-    }
-  ]
-}
-```
-
-## 🔒 Sécurité
-
-- **Authentification** : Keycloak avec JWT
-- **Autorisation** : Rôles admin/actionnaire
-- **Validation** : Pydantic pour la validation des données
-- **Audit** : Journalisation de tous les événements critiques
-- **Certificats** : PDF filigranés pour les émissions d'actions
-
-## 📝 Fonctionnalités Bonus Implémentées
-
-- ✅ **Journalisation** : Événements d'audit complets
-- ✅ **Validation avancée** : Contrôles sur les émissions d'actions
-- ✅ **Génération PDF** : Certificats avec filigrane
-- ✅ **Tests unitaires** : Couverture des services critiques
-- ✅ **Migrations** : Alembic pour la gestion des schémas
-
-## 🚀 Améliorations Futures
-
-1. **Notifications email** : Envoi automatique après émission
-2. **API GraphQL** : Alternative à REST pour les requêtes complexes
-3. **Cache Redis** : Amélioration des performances
-4. **Monitoring** : Prometheus + Grafana
-5. **CI/CD** : Pipeline automatisé avec tests
-
-## 📞 Support
-
-Pour toute question ou problème :
-- Créer une issue sur GitHub
-- Contacter l'équipe de développement
+### **Standards de Code**
+- **PEP 8** : Style de code Python
+- **Type Hints** : Annotations de types obligatoires
+- **Docstrings** : Documentation des fonctions
+- **Tests** : Couverture de code > 80%
 
 ## 📄 Licence
 
-Ce projet est développé pour le test technique Corporate OS. 
+Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
+
+## 🆘 Support
+
+### **Communauté**
+- **Issues** : [GitHub Issues](https://github.com/votre-org/corporate-os/issues)
+- **Discussions** : [GitHub Discussions](https://github.com/votre-org/corporate-os/discussions)
+- **Wiki** : [Documentation Wiki](https://github.com/votre-org/corporate-os/wiki)
+
+### **Contact**
+- **Email** : support@corporate-os.com
+- **Slack** : [Corporate OS Community](https://corporate-os.slack.com)
+- **Documentation** : [docs.corporate-os.com](https://docs.corporate-os.com)
+
+---
+
+**Corporate OS** - Simplifiez la gestion de votre Cap Table 🚀 

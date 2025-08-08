@@ -16,6 +16,14 @@ logger = logging.getLogger(__name__)
 # Créer les tables
 models.Base.metadata.create_all(bind=engine)
 
+# Démarrer le bus d'événements
+try:
+    from core.events import event_bus
+    event_bus.start()
+    logger.info("Bus d'événements démarré avec succès")
+except Exception as e:
+    logger.error(f"Erreur lors du démarrage du bus d'événements: {e}")
+
 # Métadonnées pour l'API
 tags_metadata = [
     {

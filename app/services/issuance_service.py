@@ -8,17 +8,21 @@ from datetime import date, datetime
 import os
 from app.services.certificate_service import CertificateService
 from sqlalchemy import func, and_
+from core.events.decorators import publish_event, EventType, publish_event_async
 
 
 class IssuanceService:
     @staticmethod
     def get_issuance_by_id(db: Session, user_id : UUID, issuance_id: UUID, isAdmin : bool) -> Optional[ShareIssuance]:
         print(f"params : user_id ({user_id}), issuance_id ({issuance_id}) and isAdmin ({isAdmin})")
-        return db.query(ShareIssuance).filter(ShareIssuance.id == issuance_id
-                and  (ShareIssuance.shareholder_id == user_id or isAdmin)).first()
+        return db.query(ShareIssuance).filter(ShareIssuance.shareholder_id == issuance_id or isAdmin).filter(ShareIssuance.id == issuance_id).first()
     
     @staticmethod
     def get_issuances(db: Session, skip: int = 0, limit: int = 100) -> List[ShareIssuance]:
+        return db.query(ShareIssuance).offset(skip).limit(limit).all()
+    
+    @staticmethod
+    def get_issuances_by_id(db: Session, user_id: UUID, skip: int = 0, limit: int = 100) -> List[ShareIssuance]:
         return db.query(ShareIssuance).offset(skip).limit(limit).all()
     
     @staticmethod
@@ -26,8 +30,8 @@ class IssuanceService:
         return db.query(ShareIssuance).filter(ShareIssuance.shareholder_id == shareholder_id).offset(skip).limit(limit).all()
     
     @staticmethod
+    @publish_event_async(EventType.SHARE_ISSUED, source="issuance_service")
     def create_issuance(db: Session, issuance: ShareIssuanceCreate) -> dict[str, str]:
-        # Calculer le montant total
         total_amount = issuance.shares_count * issuance.share_price
         
         # Créer l'émission
@@ -150,8 +154,8 @@ class IssuanceService:
                 'id': issuance.id,
                 'shareholder_id': issuance.shareholder_id,
                 'number_of_shares': issuance.number_of_shares,
-                'price_per_share': issuance.price_per_share,
-                'total_amount': issuance.total_amount,
+                'price_per_share': float(issuance.price_per_share),
+                'total_amount': float(issuance.total_amount),
                 'issue_date': issuance.issue_date,
                 'status': issuance.status,
                 'certificate_path': issuance.certificate_path,
