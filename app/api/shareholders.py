@@ -13,7 +13,6 @@ from app.core.config import settings
 
 router = APIRouter(prefix="/shareholders", tags=["shareholders"])
 
-# Initialiser le service Keycloak avec les paramètres de configuration
 keycloak_service = KeycloakService(
     server_url=settings.keycloak_url,
     realm_name=settings.keycloak_realm,
@@ -122,7 +121,6 @@ async def create_shareholder(
         )
     
     try:
-        # Créer l'utilisateur dans Keycloak
         keycloak_response = keycloak_service.create_user(
             username=shareholder.username,
             email=shareholder.email,
@@ -132,8 +130,7 @@ async def create_shareholder(
             role=shareholder.role
         )
         
-        # Créer l'utilisateur dans la base de données locale
-        # Le keycloak_id sera automatiquement défini par le service
+        shareholder.keycloak_id = keycloak_response.get('id')
         new_user = UserService.create_user(db, shareholder)
         
         return new_user
@@ -187,13 +184,16 @@ async def get_shareholder(
     }
     ```
     """
-
+    
+    print("shareholder id : ", shareholder_id)
     shareholder = UserService.get_user_by_id(db, shareholder_id)
     if not shareholder:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Actionnaire non trouvé"
         )
+    
+    print("sharefolder : ", shareholder)
     
     shareholder_with_shares = UserService.get_user_with_shares(db, shareholder_id)
     if not shareholder_with_shares:

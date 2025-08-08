@@ -74,13 +74,16 @@ class UserService:
         if result:
             user_dict = {
                 'id': result[0].id,
+                'keycloak_id' : result[0].keycloak_id,
                 'username': result[0].username,
                 'email': result[0].email,
                 'first_name': result[0].first_name,
                 'last_name': result[0].last_name,
                 'role': result[0].role,
                 'total_shares': int(result[1]),
-                'total_value': float(result[2])
+                'total_value': float(result[2]),
+                'created_at' : result[0].created_at,
+                'updated_at' : result[0].updated_at
             }
             return user_dict
         return None
@@ -100,13 +103,16 @@ class UserService:
         for result in results:
             shareholder_dict = {
                 'id': result[0].id,
+                'keycloak_id' : result[0].keycloak_id,
                 'username': result[0].username,
                 'email': result[0].email,
                 'first_name': result[0].first_name,
                 'last_name': result[0].last_name,
                 'role': result[0].role,
                 'total_shares': int(result[1]),
-                'total_value': float(result[2])
+                'total_value': float(result[2]),
+                'created_at' : result[0].created_at,
+                'updated_at' : result[0].updated_at
             }
             shareholders.append(shareholder_dict)
         

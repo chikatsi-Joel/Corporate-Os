@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 from app.database.models import ShareIssuance, User
-from app.schemas.issuance import ShareIssuanceCreate, ShareIssuanceUpdate
+from app.schemas.issuance import ShareIssuanceCreate, ShareIssuanceStatus, ShareIssuanceUpdate
 from typing import List, Optional
 from uuid import UUID
 from decimal import Decimal
-from datetime import date
+from datetime import date, datetime
 import os
 from app.services.certificate_service import CertificateService
 from sqlalchemy import func, and_
@@ -12,8 +12,10 @@ from sqlalchemy import func, and_
 
 class IssuanceService:
     @staticmethod
-    def get_issuance_by_id(db: Session, issuance_id: UUID) -> Optional[ShareIssuance]:
-        return db.query(ShareIssuance).filter(ShareIssuance.id == issuance_id).first()
+    def get_issuance_by_id(db: Session, user_id : UUID, issuance_id: UUID, isAdmin : bool) -> Optional[ShareIssuance]:
+        print(f"params : user_id ({user_id}), issuance_id ({issuance_id}) and isAdmin ({isAdmin})")
+        return db.query(ShareIssuance).filter(ShareIssuance.id == issuance_id
+                and  (ShareIssuance.shareholder_id == user_id or isAdmin)).first()
     
     @staticmethod
     def get_issuances(db: Session, skip: int = 0, limit: int = 100) -> List[ShareIssuance]:
@@ -24,18 +26,18 @@ class IssuanceService:
         return db.query(ShareIssuance).filter(ShareIssuance.shareholder_id == shareholder_id).offset(skip).limit(limit).all()
     
     @staticmethod
-    def create_issuance(db: Session, issuance: ShareIssuanceCreate) -> ShareIssuance:
+    def create_issuance(db: Session, issuance: ShareIssuanceCreate) -> dict[str, str]:
         # Calculer le montant total
-        total_amount = issuance.number_of_shares * issuance.price_per_share
+        total_amount = issuance.shares_count * issuance.share_price
         
         # Créer l'émission
         db_issuance = ShareIssuance(
             shareholder_id=issuance.shareholder_id,
-            number_of_shares=issuance.number_of_shares,
-            price_per_share=issuance.price_per_share,
+            number_of_shares=issuance.shares_count,
+            price_per_share=issuance.share_price,
             total_amount=total_amount,
-            issue_date=issuance.issue_date,
-            status=issuance.status
+            issue_date=datetime.utcnow(),
+            status=ShareIssuanceStatus.ISSUED.value
         )
         
         db.add(db_issuance)
@@ -49,10 +51,19 @@ class IssuanceService:
             db.commit()
             db.refresh(db_issuance)
         except Exception as e:
-            # Log l'erreur mais ne pas échouer l'émission
             print(f"Erreur lors de la génération du certificat: {e}")
         
-        return db_issuance
+        return {
+            "id": db_issuance.id,
+            "shareholder_id": db_issuance.shareholder_id,
+            "total_amount": db_issuance.total_amount,
+            "certificate_path": db_issuance.certificate_path,
+            "created_at": db_issuance.created_at,
+            "updated_at": db_issuance.updated_at,
+            "shares_count": db_issuance.number_of_shares,
+            "share_price": db_issuance.price_per_share,
+            "status": db_issuance.status
+        }
     
     @staticmethod
     def update_issuance(db: Session, issuance_id: UUID, issuance_update: ShareIssuanceUpdate) -> Optional[ShareIssuance]:
@@ -69,20 +80,7 @@ class IssuanceService:
             db.commit()
             db.refresh(db_issuance)
         return db_issuance
-    
-    @staticmethod
-    def delete_issuance(db: Session, issuance_id: UUID) -> bool:
-        db_issuance = IssuanceService.get_issuance_by_id(db, issuance_id)
-        if db_issuance:
-            # Supprimer le certificat PDF s'il existe
-            if db_issuance.certificate_path and os.path.exists(db_issuance.certificate_path):
-                os.remove(db_issuance.certificate_path)
-            
-            db.delete(db_issuance)
-            db.commit()
-            return True
-        return False
-    
+
     @staticmethod
     def get_shareholder_summary(db: Session, shareholder_id: UUID) -> dict:
         """Retourne un résumé des actions d'un actionnaire - Optimisé avec une seule requête"""

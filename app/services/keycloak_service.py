@@ -27,7 +27,7 @@ class KeycloakService:
     def get_admin_token(self) -> str:
         """Obtient un token d'administration pour Keycloak"""
         try:
-            # Nouvelle structure d'URL pour Keycloak 17+
+
             url = f"{self.server_url}/realms/master/protocol/openid-connect/token"
             
             payload = {
@@ -52,10 +52,8 @@ class KeycloakService:
     def create_user(self, username: str, email: str, password: str, first_name: str = None, last_name: str = None, role: str = None) -> Dict[str, Any]:
         """Crée un utilisateur dans Keycloak"""
         try:
-            if not self.admin_token:
-                self.get_admin_token()
+            self.get_admin_token()
             
-            # URL pour créer un utilisateur
             url = f"{self.server_url}/admin/realms/{self.realm_name}/users"
             
             user_data = {
@@ -87,18 +85,18 @@ class KeycloakService:
             
             response.raise_for_status()
             
-            # Récupérer l'ID de l'utilisateur créé
-            # Keycloak retourne l'ID dans l'en-tête Location
             location_header = response.headers.get('Location')
             if location_header:
                 user_id = location_header.split('/')[-1]
             else:
                 # Si pas d'en-tête Location, chercher l'utilisateur par username
                 user_id = self._get_user_id_by_username(username)
+                print(f"\n\nID utilisateur trouvé par nom d'utilisateur: {user_id}")
             
             # Assigner le rôle si spécifié
             if role and user_id:
                 try:
+                    print(f"\n\nID utilisateur trouvé par nom d'utilisateur: {user_id}")
                     self.assign_role_to_user(user_id, role)
                 except Exception as e:
                     logger.warning(f"Erreur lors de l'assignation du rôle {role} à l'utilisateur {username}: {e}")
@@ -146,19 +144,14 @@ class KeycloakService:
                 self.get_admin_token()
             
             # Récupérer le rôle
-            role_url = f"{self.server_url}/admin/realms/{self.realm_name}/roles/{role_name}"
             headers = {
                 'Authorization': f'Bearer {self.admin_token}',
                 'Content-Type': 'application/json'
             }
-            
-            role_response = requests.get(role_url, headers=headers)
-            role_response.raise_for_status()
-            role_data = role_response.json()
-            
+        
             # Assigner le rôle à l'utilisateur
             assign_url = f"{self.server_url}/admin/realms/{self.realm_name}/users/{user_id}/role-mappings/realm"
-            assign_response = requests.post(assign_url, json=[role_data], headers=headers)
+            assign_response = requests.post(assign_url, json=[role_name], headers=headers)
             assign_response.raise_for_status()
             
         except requests.RequestException as e:

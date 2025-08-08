@@ -15,7 +15,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Schéma pour la création d'un utilisateur"""
     password: str = Field(..., description="Mot de passe de l'utilisateur", example="securepassword123")
-
+    keycloak_id: str = Field(None, description="Identifiant Keycloak de l'utilisateur", example="keycloak-user-123")
 
 class UserUpdate(BaseModel):
     """Schéma pour la mise à jour d'un utilisateur"""

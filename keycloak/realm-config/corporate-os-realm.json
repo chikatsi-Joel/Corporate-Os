@@ -377,7 +377,7 @@
       "emailVerified": true,
       "firstName": "Admin",
       "lastName": "User",
-      "email": "admin@corporate-os.local",
+      "email": "admin@corporate-os.com",
       "credentials": [
         {
           "type": "password",
@@ -395,7 +395,7 @@
       "emailVerified": true,
       "firstName": "Actionnaire",
       "lastName": "User",
-      "email": "actionnaire@corporate-os.local",
+      "email": "actionnaire@corporate-os.com",
       "credentials": [
         {
           "type": "password",

@@ -1,9 +1,28 @@
-from sqlalchemy import Column, String, Integer, DateTime, Text, Numeric, ForeignKey, CheckConstraint, Boolean
+from sqlalchemy import Column, String, Integer, DateTime, Text, Numeric, ForeignKey, CheckConstraint, Boolean, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database.database import Base
 import uuid
+import enum
+
+
+class NotificationType(str, enum.Enum):
+    """Types de notifications disponibles"""
+    SHARE_ISSUANCE = "share_issuance"
+    SHARE_TRANSFER = "share_transfer"
+    CERTIFICATE_GENERATED = "certificate_generated"
+    SYSTEM_ALERT = "system_alert"
+    USER_REGISTRATION = "user_registration"
+    CAP_TABLE_UPDATE = "cap_table_update"
+
+
+class NotificationStatus(str, enum.Enum):
+    """Statuts des notifications"""
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+    READ = "read"
 
 
 class User(Base):
@@ -14,7 +33,6 @@ class User(Base):
     username = Column(String(255), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     first_name = Column(String(255), nullable=True)
-    password = Column(String(255), nullable=True)  # Password is optional for Keycloak integration
     last_name = Column(String(255), nullable=True)
     role = Column(String(50), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -66,4 +84,4 @@ class ShareIssuance(Base):
         CheckConstraint(number_of_shares > 0, name='positive_shares'),
         CheckConstraint(price_per_share >= 0, name='non_negative_price'),
         CheckConstraint(status.in_(['pending', 'issued', 'cancelled']), name='valid_status'),
-    ) 
+    )

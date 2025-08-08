@@ -8,8 +8,6 @@ import enum
 Base = declarative_base()
 
 
-
-
 class AuditEvent(Base):
     """Modèle pour stocker les événements d'audit"""
     __tablename__ = "audit_events"
@@ -43,7 +41,6 @@ class AuditEvent(Base):
     # Statut
     status = Column(String(20), default="processed", nullable=False)  # processed, failed, pending
     
-    # Index composites pour les requêtes courantes
     __table_args__ = (
         Index('idx_event_user_date', 'event_type', 'user_id', 'created_at'),
         Index('idx_resource_date', 'resource_type', 'resource_id', 'created_at'),

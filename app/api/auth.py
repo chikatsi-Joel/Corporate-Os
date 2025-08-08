@@ -1,8 +1,10 @@
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from typing import Optional
 
+from core.events.audit_publisher import AuditPublisher
 import requests
 from app.database.models import User
 from app.services.user_service import UserService
@@ -52,20 +54,16 @@ class UserInfo(BaseModel):
 
 @router.post("/login", response_model=TokenResponse, summary="Authentification utilisateur")
 async def login(form_data: LoginRequest):
-    """
-    Endpoint pour l'authentification utilisateur via Keycloak.
-    
-    Args:
-        form_data: Données du formulaire d'authentification (username et password)
-    
-    Returns:
-        TokenResponse: Contient le token d'accès et les informations associées
-    
-    Raises:
-        HTTPException: Si l'authentification échoue
-    """
+
     try:
         token_url = f"{settings.keycloak_url}/realms/{settings.keycloak_realm}/protocol/openid-connect/token"
+        
+        # Créer l'instance AuditPublisher avec gestion d'erreur
+        try:
+            audit = AuditPublisher()
+        except Exception as e:
+            print(f"Impossible de créer AuditPublisher: {e}")
+            audit = None
         
         token_data = {
             'client_id': settings.keycloak_client_id,
@@ -96,7 +94,21 @@ async def login(form_data: LoginRequest):
         
         token_info = response.json()
         
-        print(f"Authentification réussie pour: {form_data.username}")
+        print("publication pour audit ")
+        
+        # Publier l'audit seulement si AuditPublisher est disponible
+        if audit:
+            try:
+                audit.publish_for_audit(
+                    message=f"Utilisateur {form_data.username} connecté avec succès",
+                    notification_type="connexion",
+                    metadata={
+                        "username": form_data.username,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                )
+            except Exception as e:
+                print(f"Erreur lors de la publication d'audit: {e}")
         
         # Retourner la réponse formatée
         return TokenResponse(

@@ -1,3 +1,4 @@
+import enum
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime, date
@@ -5,6 +6,13 @@ from uuid import UUID
 from decimal import Decimal
 
 
+class ShareIssuanceStatus(enum.Enum):
+    """Enum pour les statuts d'émission d'actions"""
+    ISSUED = "issued"
+    PENDING = "pending"
+    CANCELLED = "cancelled"
+    
+    
 class ShareIssuanceBase(BaseModel):
     """Schéma de base pour une émission d'actions"""
     shareholder_id: UUID = Field(..., description="Identifiant de l'actionnaire")
@@ -76,5 +84,27 @@ class ShareIssuanceWithShareholder(ShareIssuance):
                     "last_name": "Doe",
                     "email": "john.doe@example.com"
                 }
+            }
+        } 
+
+
+class ShareIssuanceWithCertificate(ShareIssuance):
+    """Schéma d'une émission d'actions avec le certificat PDF en base64"""
+    certificate_base64: Optional[str] = Field(None, description="Certificat PDF encodé en base64")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": "123e4567-e89b-12d3-a456-426614174000",
+                "shareholder_id": "123e4567-e89b-12d3-a456-426614174001",
+                "number_of_shares": 1000,
+                "price_per_share": 50.00,
+                "total_amount": 50000.00,
+                "issue_date": "2024-01-01",
+                "status": "issued",
+                "certificate_path": "/certificates/issuance_123.pdf",
+                "certificate_base64": "JVBERi0xLjQKJcOkw7zDtsO...",
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z"
             }
         } 

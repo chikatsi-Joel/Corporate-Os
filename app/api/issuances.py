@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from app.core.check_role import require_any_role, require_role
+from app.core.check_role import get_current_user, require_any_role, require_role
 from app.database.database import get_db
 from app.database.models import User, ShareIssuance
-from app.schemas.issuance import ShareIssuanceCreate, ShareIssuance as ShareIssuanceSchema, ShareIssuanceWithShareholder
+from app.schemas.issuance import ShareIssuanceCreate, ShareIssuance as ShareIssuanceSchema, ShareIssuanceWithShareholder, ShareIssuanceWithCertificate
 from app.services.issuance_service import IssuanceService
 from app.services.user_service import UserService
 from app.services.certificate_service import CertificateService
@@ -37,31 +37,7 @@ async def get_issuances(
     **Retourne** :
     - `200 OK` : Liste des émissions d'actions
     - `401 Unauthorized` : Token invalide ou expiré
-    
-    **Exemple de réponse** :
-    ```json
-    [
-        {
-            "id": "123e4567-e89b-12d3-a456-426614174000",
-            "shareholder_id": "123e4567-e89b-12d3-a456-426614174001",
-            "number_of_shares": 1000,
-            "price_per_share": 50.00,
-            "total_amount": 50000.00,
-            "issue_date": "2024-01-01",
-            "status": "issued",
-            "certificate_path": "/certificates/issuance_123.pdf",
-            "created_at": "2024-01-01T00:00:00Z",
-            "updated_at": "2024-01-01T00:00:00Z",
-            "shareholder": {
-                "id": "123e4567-e89b-12d3-a456-426614174001",
-                "username": "john.doe",
-                "first_name": "John",
-                "last_name": "Doe",
-                "email": "john.doe@example.com"
-            }
-        }
-    ]
-    ```
+ 
     """
     pass
 
@@ -76,7 +52,7 @@ async def create_issuance(
     Crée une nouvelle émission d'actions.
     
     Cette endpoint permet de créer une nouvelle émission d'actions pour un actionnaire.
-    Le montant total est calculé automatiquement (nombre d'actions × prix par action).
+    Le montant total est calculé automatiquement (nombre d'actions x prix par action).
     Un certificat PDF est généré automatiquement.
     
     **Permissions requises** : Rôle admin uniquement
@@ -91,32 +67,6 @@ async def create_issuance(
     - `404 Not Found` : Actionnaire non trouvé
     - `409 Conflict` : Émission en conflit
     
-    **Exemple de requête** :
-    ```json
-    {
-        "shareholder_id": "123e4567-e89b-12d3-a456-426614174001",
-        "number_of_shares": 1000,
-        "price_per_share": 50.00,
-        "issue_date": "2024-01-01",
-        "status": "issued"
-    }
-    ```
-    
-    **Exemple de réponse** :
-    ```json
-    {
-        "id": "123e4567-e89b-12d3-a456-426614174000",
-        "shareholder_id": "123e4567-e89b-12d3-a456-426614174001",
-        "number_of_shares": 1000,
-        "price_per_share": 50.00,
-        "total_amount": 50000.00,
-        "issue_date": "2024-01-01",
-        "status": "issued",
-        "certificate_path": "/certificates/issuance_123.pdf",
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z"
-    }
-    ```
     """
     # Vérifier que l'actionnaire existe
     shareholder = UserService.get_user_by_id(db, issuance.shareholder_id)
@@ -132,9 +82,10 @@ async def create_issuance(
     return new_issuance
 
 
-@router.get("/{issuance_id}", response_model=ShareIssuanceWithShareholder, summary="Détails d'une émission")
+@router.get("/{issuance_id}",
+             response_model=ShareIssuanceWithShareholder, summary="Détails d'une émission")
 async def get_issuance(
-    issuance_id: UUID,
+    user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -155,36 +106,15 @@ async def get_issuance(
     - `403 Forbidden` : Accès refusé
     - `404 Not Found` : Émission non trouvée
     - `401 Unauthorized` : Token invalide ou expiré
-    
-    **Exemple de réponse** :
-    ```json
-    {
-        "id": "123e4567-e89b-12d3-a456-426614174000",
-        "shareholder_id": "123e4567-e89b-12d3-a456-426614174001",
-        "number_of_shares": 1000,
-        "price_per_share": 50.00,
-        "total_amount": 50000.00,
-        "issue_date": "2024-01-01",
-        "status": "issued",
-        "certificate_path": "/certificates/issuance_123.pdf",
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z",
-        "shareholder": {
-            "id": "123e4567-e89b-12d3-a456-426614174001",
-            "username": "john.doe",
-            "first_name": "John",
-            "last_name": "Doe",
-            "email": "john.doe@example.com"
-        }
-    }
-    ```
+
     """
-    pass
+    print(user)
 
 @router.get("/{issuance_id}/certificate", summary="Télécharger le certificat PDF",
             dependencies=[require_any_role(['admin', 'actionnaire'])])
 async def download_certificate(
-    issuance_id: UUID,
+    issuance_id : UUID,
+    user = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -205,20 +135,35 @@ async def download_certificate(
     - `403 Forbidden` : Accès refusé
     - `404 Not Found` : Émission ou certificat non trouvé
     - `401 Unauthorized` : Token invalide ou expiré
+    """
+    from fastapi.responses import FileResponse
+    import os
     
-    **Exemple de réponse** :
-    ```
-    Content-Type: application/pdf
-    Content-Disposition: attachment; filename="certificate_123.pdf"
+    # Récupérer l'émission
+    users = UserService.get_user_by_email(db, user['email'])
+    issuance = IssuanceService.get_issuance_by_id(
+        db, 
+        users.id,
+        issuance_id, 
+        'admin' in user['realm_access']['roles'])
+    if not issuance:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Émission non trouvée"
+        )
+        
+    # Vérifier que le certificat existe
+    if not issuance.certificate_path or not os.path.exists(issuance.certificate_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Certificat non trouvé"
+        )
     
-    [Contenu binaire du PDF]
-    ```
     return FileResponse(
         path=issuance.certificate_path,
         filename=f"certificate_{issuance_id}.pdf",
         media_type="application/pdf"
     )
-    """
 
 
 @router.get("/cap-table/summary", summary="Résumé de la Cap Table",
@@ -241,27 +186,7 @@ async def get_cap_table_summary(
     - `200 OK` : Résumé de la Cap Table
     - `403 Forbidden` : Accès refusé (pas de rôle admin)
     - `401 Unauthorized` : Token invalide ou expiré
-    
-    **Exemple de réponse** :
-    ```json
-    {
-        "total_shares": 10000,
-        "total_value": 500000.00,
-        "shareholders_count": 5,
-        "shareholders": [
-            {
-                "id": "123e4567-e89b-12d3-a456-426614174000",
-                "username": "john.doe",
-                "first_name": "John",
-                "last_name": "Doe",
-                "shares": 2500,
-                "value": 125000.00,
-                "percentage": 25.0
-            }
-        ],
-        "last_updated": "2024-01-01T00:00:00Z"
-    }
-    ```
+
     """
     summary = IssuanceService.get_cap_table_summary(db)
     return summary 

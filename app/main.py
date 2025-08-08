@@ -35,6 +35,14 @@ tags_metadata = [
         "description": "Gestion des émissions d'actions. Permet de créer des émissions, consulter les certificats et gérer la Cap Table.",
     },
     {
+        "name": "notifications",
+        "description": "Gestion des notifications. Permet d'envoyer et de gérer les notifications aux utilisateurs.",
+    },
+    {
+        "name": "audit",
+        "description": "Gestion des événements d'audit. Permet de tracer et d'analyser les actions des utilisateurs.",
+    },
+    {
         "name": "health",
         "description": "Points de contrôle de santé de l'application et informations système.",
     },
@@ -58,6 +66,8 @@ Cette API permet de gérer la table de capitalisation (Cap Table) d'une entrepri
 * ** Émissions d'Actions** : Gestion des émissions d'actions avec calcul automatique
 * ** Certificats PDF** : Génération automatique de certificats d'actions
 * ** Cap Table** : Visualisation et gestion de la table de capitalisation
+* ** Notifications** : Système de notifications pour les événements importants
+* ** Audit** : Traçabilité complète des actions utilisateurs
 
 ### Rôles Utilisateurs
 
@@ -70,6 +80,7 @@ Cette API permet de gérer la table de capitalisation (Cap Table) d'une entrepri
 * **Base de données** : PostgreSQL
 * **Authentification** : Keycloak
 * **Génération PDF** : ReportLab
+* **Message Broker** : RabbitMQ
 * **Documentation** : Swagger/OpenAPI
 
 ## Démarrage Rapide
@@ -77,6 +88,7 @@ Cette API permet de gérer la table de capitalisation (Cap Table) d'une entrepri
 1. **Démarrer les services** : `docker-compose up -d`
 2. **Accéder à la documentation** : http://localhost:8000/docs
 3. **Authentification** : Utiliser Keycloak (http://localhost:8080)
+4. **RabbitMQ Management** : http://localhost:15672
 
 ## Endpoints Principaux
 
@@ -86,6 +98,7 @@ Cette API permet de gérer la table de capitalisation (Cap Table) d'une entrepri
 * `GET /api/shareholders/` - Liste des actionnaires
 * `GET /api/issuances/` - Liste des émissions
 * `GET /api/issuances/cap-table/summary` - Résumé de la Cap Table
+* `GET /api/audit/events` - Événements d'audit (admin uniquement)
 
 ## 🔒 Authentification
 
@@ -132,32 +145,14 @@ app.add_middleware(
 
 excluded_routes = [
     "/status",
-    "/auth/login",
     "/docs",
     "/openapi.json",
     "/redoc",
+    "/auth/login"
 ]
 
 async def map_user(userinfo: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
-    """
-    Mapper pour transformer les informations utilisateur de Keycloak.
-    
-    Cette fonction reçoit le JWT décodé complet et doit retourner toutes les informations
-    nécessaires, y compris les rôles dans realm_access.
-    
-    Args:
-        userinfo: Le JWT décodé complet de Keycloak
-        
-    Returns:
-        Dict contenant toutes les informations utilisateur nécessaires
-    """
-    
-    # Debug: Afficher le contenu complet du JWT pour diagnostic
-    logger.info(f"🔍 JWT décodé complet reçu dans map_user: {userinfo}")
-    
-
-    return userinfo
-
+   return userinfo
 
 config = KeycloakConfiguration(
     url=settings.keycloak_url,
@@ -172,7 +167,7 @@ config = KeycloakConfiguration(
         "given_name", 
         "family_name",
         "realm_access"
-    ],
+    ]
 )
 
 setup_keycloak_middleware(app, config, user_mapper=map_user, exclude_patterns=excluded_routes)
@@ -181,6 +176,7 @@ setup_keycloak_middleware(app, config, user_mapper=map_user, exclude_patterns=ex
 app.include_router(auth.router)
 app.include_router(shareholders.router)
 app.include_router(issuances.router)
+#app.include_router(audit_router)
 
 # Configuration personnalisée de l'OpenAPI schema
 app.openapi = lambda: custom_openapi_schema(app)

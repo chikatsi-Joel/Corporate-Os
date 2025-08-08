@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Base de données PostgreSQL
   postgres:
@@ -18,9 +16,9 @@ services:
       - corporate_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U corporate_user -d corporate_os"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Keycloak pour l'authentification
   keycloak:
@@ -34,6 +32,8 @@ services:
       KC_DB_USERNAME: corporate_user
       KC_DB_PASSWORD: corporate_password
       KC_HTTP_ENABLED: true
+      KC_HEALTH_ENABLED: true
+      KC_IMPORT_REALM: /opt/keycloak/data/import/corporate-os-realm.json
     command: ["start"]
     ports:
       - "8080:8080"
@@ -47,22 +47,43 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 120s
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: corporate_os_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_VHOST: /
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - corporate_network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   # Application FastAPI
   app:
-    build:
-      context: ./app
-      dockerfile: Dockerfile
-      args:
-        - BUILDKIT_INLINE_CACHE=1
+    build: .
     container_name: corporate_os_app
     environment:
-      DATABASE_URL: postgresql://corporate_user:corporate_password@postgres:5432/corporate_os
-      KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: corporate-os
-      KEYCLOAK_CLIENT_ID: corporate-os-client
-      SECRET_KEY: your-secret-key-here
+      - DATABASE_URL=postgresql://corporate_user:corporate_password@postgres:5432/corporate_os
+      - KEYCLOAK_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=corporate-os
+      - KEYCLOAK_CLIENT_ID=corporate-os-client
+      - KEYCLOAK_CLIENT_SECRET=corporate-os-client-secret
+      - KEYCLOAK_ADMIN_USERNAME=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - DOCKER_ENV=true
     ports:
       - "8000:8000"
     depends_on:
@@ -70,10 +91,11 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - corporate_network
     volumes:
-      - ./app:/app/app
       - ./certificates:/app/certificates
       - ./uploads:/app/uploads
     healthcheck:
@@ -83,17 +105,9 @@ services:
       retries: 3
     restart: unless-stopped
 
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: corporate_os_rabbitmq
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    networks:
-      - corporate_network
-
 volumes:
   postgres_data:
+  rabbitmq_data:
 
 networks:
   corporate_network:
