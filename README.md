@@ -70,6 +70,7 @@ Corporate OS est une plateforme moderne de gestion de table de capitalisation (C
 git clone https://github.com/votre-org/corporate-os.git
 cd corporate-os
 
+git checkout dev
 # Copier le fichier d'environnement
 cp .env.example .env
 
