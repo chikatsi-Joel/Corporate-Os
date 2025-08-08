@@ -221,16 +221,7 @@ corporate-os/
 
 ### **Commandes Utiles**
 ```bash
-# Démarrer en mode développement
-docker compose -f docker-compose.dev.yml up
 
-# Créer une migration
-docker compose exec app alembic revision --autogenerate -m "Description"
-
-# Appliquer les migrations
-docker compose exec app alembic upgrade head
-
-# Redémarrer un service
 docker compose restart app
 
 # Voir les logs
